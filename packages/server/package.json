@@ -1,0 +1,29 @@
+{
+  "name": "@workspace/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc --noEmit",
+    "lint": "eslint",
+    "format": "prettier --write \"**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@trpc/server": "^11.19.0",
+    "express": "^5.1.0",
+    "zod": "^4.6.6"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^20",
+    "@workspace/typescript-config": "workspace:*",
+    "tsx": "^4.20.6",
+    "typescript": "^5"
+  },
+  "exports": {
+    "./router": "./src/router.ts"
+  }
+}
