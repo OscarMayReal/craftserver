@@ -1,6 +1,6 @@
 "use client"
 import { SidebarProvider, Sidebar, SidebarContent, SidebarInset, SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarMenuButton } from "@workspace/ui/components/sidebar"
-import { HomeIcon } from "lucide-react";
+import { FolderIcon, HomeIcon } from "lucide-react";
 import Link from "next/link";
 
 export default function DashboardLayout({
@@ -17,6 +17,11 @@ export default function DashboardLayout({
                     <Link href="/dashboard">
                         <SidebarMenuButton>
                             <HomeIcon /> Home
+                        </SidebarMenuButton>
+                    </Link>
+                    <Link href="/dashboard/files">
+                        <SidebarMenuButton>
+                            <FolderIcon /> Files
                         </SidebarMenuButton>
                     </Link>
                 </SidebarGroupContent>

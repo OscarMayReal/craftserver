@@ -4,6 +4,8 @@ import "@workspace/ui/globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { TRPCProvider } from "@/components/trpc-provider"
 import { cn } from "@workspace/ui/lib/utils";
+import { Toaster } from "@workspace/ui/components/toast"
+
 
 const figtree = Figtree({subsets:['latin'],variable:'--font-sans'})
 
@@ -25,7 +27,7 @@ export default function RootLayout({
     >
       <body className="w-[100dvw] h-[100dvh] fixed top-0 left-0 flex">
         <ThemeProvider>
-          <TRPCProvider>{children}</TRPCProvider>
+          <TRPCProvider><Toaster />{children}</TRPCProvider>
         </ThemeProvider>
       </body>
     </html>
