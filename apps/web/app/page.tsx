@@ -1,19 +1,21 @@
-import { Button } from "@workspace/ui/components/button"
+"use client"
+import { trpc } from "@/lib/trpc"
+import { useRouter } from "next/navigation"
+import { useEffect } from "react"
 
 export default function Page() {
+  const isServerConfigured = trpc.config.isServerConfigured.useQuery()
+  const router = useRouter()
+  useEffect(() => {
+    if (isServerConfigured.data) {
+      router.push("/dashboard")
+    } else {
+      router.push("/setup")
+    }
+  }, [isServerConfigured.data, router])
   return (
-    <div className="flex min-h-svh p-6">
-      <div className="flex max-w-md min-w-0 flex-col gap-4 text-sm leading-loose">
-        <div>
-          <h1 className="font-medium">Project ready!</h1>
-          <p>You may now add components and start building.</p>
-          <p>We&apos;ve already added the button component for you.</p>
-          <Button className="mt-2">Button</Button>
-        </div>
-        <div className="text-muted-foreground font-mono text-xs">
-          (Press <kbd>d</kbd> to toggle dark mode)
-        </div>
-      </div>
+    <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-lg">
+      Loading...
     </div>
   )
 }

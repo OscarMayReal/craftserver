@@ -44,7 +44,7 @@ type MinecraftVersion = {
       releaseTime: string;
 };
 
-export function SetupPageBasicInfo({ currentStep, setCurrentStep }: StepState) {
+function SetupPageBasicInfo({ currentStep, setCurrentStep }: StepState) {
     const [versions, setVersions] = useState<MinecraftVersion[]>([])
     if (versions.length === 0) {
         fetch("/api/version_manifest.json")
@@ -232,7 +232,7 @@ export function SetupPageBasicInfo({ currentStep, setCurrentStep }: StepState) {
   )
 }
 
-export function SetupPageSecurity({ currentStep, setCurrentStep }: StepState) {
+function SetupPageSecurity({ currentStep, setCurrentStep }: StepState) {
   const [newPlayer, setNewPlayer] = useState<string>("")
   const { accessMode, setAccessMode, allowedPlayers, setAllowedPlayers } = useSetupSettings()
   return (
@@ -344,7 +344,7 @@ function ExtensionItem({logo, title, description}: {logo: string, title: string,
   )
 }
 
-export function SetupPageMods({ currentStep, setCurrentStep }: StepState) {
+function SetupPageMods({ currentStep, setCurrentStep }: StepState) {
   const { serverType } = useSetupSettings()
   return (
     <div className="flex flex-col w-full h-full max-w-2xl mx-auto gap-4">

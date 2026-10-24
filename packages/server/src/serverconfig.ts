@@ -76,6 +76,19 @@ const serverConfigRouter = router({
     fs.writeFileSync('./data/serverconfig.json', JSON.stringify(input, null, 2));
     return true;
   }),
+  updateConfig: publicProcedure.input(serverConfigSchema.partial()).mutation(({ input }) => {
+    const config = { ...readServerConfig(), ...input };
+    fs.writeFileSync('./data/serverconfig.json', JSON.stringify(config, null, 2));
+    return config;
+  }),
+  kickPlayer: publicProcedure.input(z.object({
+    username: z.string().regex(/^[A-Za-z0-9_]{1,16}$/),
+    reason: z.string().max(200).optional(),
+  })).mutation(({ input }) => {
+    const reason = input.reason?.replace(/[\r\n]+/g, ' ').trim();
+    server.runCommand(`/kick ${input.username}${reason ? ` ${reason}` : ''}`);
+    return true;
+  }),
   initializeServer: publicProcedure.mutation(async () => {
     const config = readServerConfig();
     await downloadServer(config.minecraftVersion);
@@ -98,6 +111,22 @@ const serverConfigRouter = router({
     await startConfiguredServer(readServerConfig());
     return true;
   }),
+  restartServer: publicProcedure.mutation(async () => {
+    await new Promise<void>((resolve, reject) => {
+      server.stopServer((error: Error | null) => {
+        if (error) reject(error);
+        else {
+          markServerStopped();
+          resolve();
+        }
+      });
+    });
+    await startConfiguredServer(readServerConfig());
+    return true;
+  }),
+  isServerConfigured: publicProcedure.query(() => {
+    return fs.existsSync('./data/serverconfig.json');
+  })
 });
 
 export default serverConfigRouter;

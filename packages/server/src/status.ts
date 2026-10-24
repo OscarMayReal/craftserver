@@ -37,7 +37,7 @@ function getConfiguredPort(): number {
   }
 }
 
-function getCurrentPlayers(): Promise<number | null> {
+function getOnlinePlayers(): Promise<string[] | null> {
   const port = getConfiguredPort();
 
   return new Promise((resolve) => {
@@ -45,7 +45,7 @@ function getCurrentPlayers(): Promise<number | null> {
     let response = Buffer.alloc(0);
     let settled = false;
 
-    function finish(players: number | null) {
+    function finish(players: string[] | null) {
       if (settled) return;
       settled = true;
       socket.destroy();
@@ -87,9 +87,12 @@ function getCurrentPlayers(): Promise<number | null> {
 
       try {
         const status = JSON.parse(response.toString('utf8', jsonStart, jsonEnd)) as {
-          players?: { online?: number };
+          players?: { online?: number; sample?: Array<{ name?: unknown }> };
         };
-        finish(typeof status.players?.online === 'number' ? status.players.online : null);
+        if (typeof status.players?.online !== 'number') return finish(null);
+        finish((status.players.sample ?? [])
+          .map((player) => player.name)
+          .filter((name): name is string => typeof name === 'string'));
       } catch {
         finish(null);
       }
@@ -98,17 +101,20 @@ function getCurrentPlayers(): Promise<number | null> {
 }
 
 const statusRouter = router({
+  online: publicProcedure.query(() => getOnlinePlayers()),
   get: publicProcedure.query(async () => {
     const memory = process.memoryUsage();
+    const onlinePlayers = await getOnlinePlayers();
 
     return {
-      currentPlayers: await getCurrentPlayers(),
+      currentPlayers: onlinePlayers === null ? null : onlinePlayers.length,
       uptimeMs: getServerUptimeMs(),
       memoryUsage: {
         residentBytes: memory.rss,
         heapUsedBytes: memory.heapUsed,
         heapTotalBytes: memory.heapTotal,
       },
+      serverRunning: onlinePlayers !== null,
     };
   }),
 });

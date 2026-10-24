@@ -1,8 +1,12 @@
 "use client"
 import { trpc } from "@/lib/trpc";
 import { Alert, AlertDescription, AlertTitle } from "@workspace/ui/components/alert";
+import { Button } from "@workspace/ui/components/button";
+import { ButtonGroup } from "@workspace/ui/components/button-group";
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@workspace/ui/components/item";
-import { ClockIcon, MemoryStickIcon, UserIcon } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@workspace/ui/components/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@workspace/ui/components/tooltip";
+import { ClockIcon, MemoryStickIcon, PlayIcon, RefreshCwIcon, ServerIcon, StopCircleIcon, UserIcon } from "lucide-react";
 import { useState } from "react";
 
 type MinecraftVersion = {
@@ -39,6 +43,15 @@ export default function DashboardPage() {
     const [versions, setVersions] = useState<MinecraftVersion[]>([])
     const config = trpc.config.get.useQuery();
     const status = trpc.status.get.useQuery(undefined, { refetchInterval: 5_000 });
+    const players = trpc.status.online.useQuery(undefined, { refetchInterval: 5_000 });
+    const refreshStatus = () => {
+        void status.refetch();
+        void players.refetch();
+    };
+    const restartServer = trpc.config.restartServer.useMutation({ onSuccess: refreshStatus });
+    const stopServer = trpc.config.stopServer.useMutation({ onSuccess: refreshStatus });
+    const startServer = trpc.config.startServer.useMutation({ onSuccess: refreshStatus });
+    const serverActionPending = restartServer.isPending || stopServer.isPending || startServer.isPending;
     if (versions.length === 0) {
         fetch("/api/version_manifest.json")
             .then(response => response.json())
@@ -47,8 +60,52 @@ export default function DashboardPage() {
             })
     }
     return <div className="p-6">
-        <h1 className="text-2xl font-medium">Dashboard</h1>
+        <div className="flex flex-row items-center">
+            <h1 className="text-2xl font-medium">Dashboard</h1>
+            <div className="flex flex-1" />
+            <ButtonGroup>
+                <Tooltip>
+                    <TooltipTrigger render={<Button onClick={() => {
+                        restartServer.mutate();
+                    }} disabled={!status.data?.serverRunning || serverActionPending} variant="outline" size="icon"><RefreshCwIcon /></Button>} />
+                    <TooltipContent>
+                        Restart Server
+                    </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                    <TooltipTrigger render={<Button onClick={() => {
+                        stopServer.mutate();
+                    }} disabled={!status.data?.serverRunning || serverActionPending} variant="outline" size="icon"><StopCircleIcon /></Button>} />
+                    <TooltipContent>
+                        Stop Server
+                    </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                    <TooltipTrigger render={<Button onClick={() => {
+                        startServer.mutate();
+                    }} disabled={status.data?.serverRunning || serverActionPending} variant="outline" size="icon"><PlayIcon /></Button>} />
+                    <TooltipContent>
+                        Start Server
+                    </TooltipContent>
+                </Tooltip>
+            </ButtonGroup>
+        </div>
         <div className="mt-6 flex flex-row gap-4">
+            <Item variant="outline">
+                <ItemMedia variant="icon">
+                    <ServerIcon />
+                </ItemMedia>
+                <ItemContent>
+                    <ItemTitle>Server Status</ItemTitle>
+                    <ItemDescription>
+                        {status.isPending
+                            ? "Loading…"
+                            : status.data?.serverRunning
+                                ? "Running"
+                                : "Stopped"}
+                    </ItemDescription>
+                </ItemContent>
+            </Item>
             <Item variant="outline">
                 <ItemMedia variant="icon">
                     <UserIcon />
@@ -85,11 +142,36 @@ export default function DashboardPage() {
                 </ItemContent>
             </Item>
         </div>
-        {config.data?.minecraftVersion && config.data.minecraftVersion !== versions.filter(v => v.type === "release")[0]?.id && <Alert>
+        {config.data?.minecraftVersion && config.data.minecraftVersion !== versions.filter(v => v.type === "release")[0]?.id && <Alert className="mt-6">
             <AlertTitle>Update Available</AlertTitle>
             <AlertDescription>
                 A new version of the server is available. Please update to the latest version.
             </AlertDescription>
         </Alert>}
+        <div className="mt-6">
+            <h1 className="text-xl font-medium">Online Players</h1>
+            {(players.data?.length && players.data.length > 0) ? <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead className="w-[30px]" />
+                        <TableHead>Name</TableHead>
+                        <TableHead className="w-[30px]" />
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {players.data?.map(player => (
+                        <TableRow key={player}> 
+                            <TableCell className="w-[30px]">
+                                <UserIcon size={16} />
+                            </TableCell>
+                            <TableCell>{player}</TableCell>
+                            <TableCell className="w-[30px]">
+                                
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table> : <div>No players online right now</div>}
+        </div>
     </div>
 }
