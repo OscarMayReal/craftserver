@@ -7,8 +7,8 @@ type SetupSettings = {
   setServerName: (value: string) => void
   serverMOTD: string
   setServerMOTD: (value: string) => void
-  serverPort: string
-  setServerPort: (value: string) => void
+  serverPort: number
+  setServerPort: (value: number) => void
   minecraftVersion: string
   setMinecraftVersion: (value: string) => void
   serverType: string
@@ -23,8 +23,8 @@ type SetupSettings = {
   setGameMode: (value: string) => void
   difficulty: string
   setDifficulty: (value: string) => void
-  accessMode: string
-  setAccessMode: (value: string) => void
+  accessMode: "private" | "public"
+  setAccessMode: (value: "private" | "public") => void
   allowedPlayers: string[]
   setAllowedPlayers: (value: string[]) => void
   selectedMods: string[]
@@ -36,7 +36,7 @@ const SetupContext = createContext<SetupSettings | null>(null)
 export function SetupProvider({ children }: { children: React.ReactNode }) {
   const [serverName, setServerName] = useState("")
   const [serverMOTD, setServerMOTD] = useState("")
-  const [serverPort, setServerPort] = useState("25565")
+  const [serverPort, setServerPort] = useState(25565)
   const [minecraftVersion, setMinecraftVersion] = useState("")
   const [serverType, setServerType] = useState("Vanilla")
   const [mojangEula, setMojangEula] = useState(false)
@@ -44,7 +44,7 @@ export function SetupProvider({ children }: { children: React.ReactNode }) {
   const [worldSeed, setWorldSeed] = useState("")
   const [gameMode, setGameMode] = useState("Survival")
   const [difficulty, setDifficulty] = useState("Normal")
-  const [accessMode, setAccessMode] = useState("private")
+  const [accessMode, setAccessMode] = useState<"private" | "public">("private")
   const [allowedPlayers, setAllowedPlayers] = useState<string[]>([])
   const [selectedMods, setSelectedMods] = useState<string[]>([])
 

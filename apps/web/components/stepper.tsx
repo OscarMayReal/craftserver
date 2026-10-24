@@ -10,7 +10,7 @@ import {
   StepperTitle,
   StepperTrigger,
 } from "@workspace/ui/components/reui/stepper"
-import { cloneElement, isValidElement, useState } from "react"
+import { createElement, useState, type ComponentType } from "react"
 
 export type StepState = {
   currentStep: number
@@ -19,7 +19,7 @@ export type StepState = {
 
 type StepDefinition = {
   title: string
-  component: React.ReactNode
+  component: ComponentType<StepState>
 }
 
 export function StepperUi({ steps }: { steps: StepDefinition[] }) {
@@ -55,12 +55,7 @@ export function StepperUi({ steps }: { steps: StepDefinition[] }) {
             value={index + 1}
             className="flex items-center justify-center"
           >
-            {isValidElement(step.component)
-              ? cloneElement(step.component as React.ReactElement<StepState>, {
-                  currentStep,
-                  setCurrentStep,
-                })
-              : step.component}
+            {createElement(step.component, { currentStep, setCurrentStep })}
           </StepperContent>
         ))}
       </StepperPanel>

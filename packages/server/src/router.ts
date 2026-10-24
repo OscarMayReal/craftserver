@@ -1,12 +1,10 @@
-import { z } from 'zod';
-
-import { publicProcedure, router } from './trpc.js';
+import { router } from './trpc.js';
+import serverConfigRouter from './serverconfig';
+import statusRouter from './status';
 
 export const appRouter = router({
-  health: publicProcedure.query(() => ({ status: 'ok' as const })),
-  hello: publicProcedure
-    .input(z.object({ name: z.string().min(1).max(100) }))
-    .query(({ input }) => ({ greeting: `Hello, ${input.name}!` })),
+  config: serverConfigRouter,
+  status: statusRouter,
 });
 
 export type AppRouter = typeof appRouter;

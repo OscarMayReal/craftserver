@@ -7,6 +7,8 @@ import { StepperUi } from "@/components/stepper"
 import type { StepState } from "@/components/stepper"
 import { SetupProvider, useSetupSettings } from "@/components/setup-context"
 
+import { trpc } from '@/lib/trpc';
+
 
 import {
   Frame,
@@ -25,12 +27,13 @@ import { Checkbox } from "@workspace/ui/components/checkbox"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from "@workspace/ui/components/empty"
 import { UserPlus } from "lucide-react"
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@workspace/ui/components/item"
+import { useRouter } from "next/navigation"
 
 const steps = [
-  { title: "Basic Info", component: <SetupPageBasicInfo /> },
-  { title: "Security", component: <SetupPageSecurity /> },
-  { title: "Mods", component: <SetupPageMods /> },
-  { title: "Review", component: <SetupPageReview /> },
+  { title: "Basic Info", component: SetupPageBasicInfo },
+  { title: "Security", component: SetupPageSecurity },
+  { title: "Mods", component: SetupPageMods },
+  { title: "Review", component: SetupPageReview },
 ]
 
 type MinecraftVersion = {
@@ -92,7 +95,7 @@ export function SetupPageBasicInfo({ currentStep, setCurrentStep }: StepState) {
                 <FieldTitle>Server Port</FieldTitle>
                 <FieldDescription>You can probably leave this as is, unless you are running multiple servers</FieldDescription>
                 <FieldContent>
-                    <Input placeholder="Server Port" value={serverPort} onChange={(e) => setServerPort(e.target.value)} />
+                    <Input type="number" placeholder="Server Port" value={serverPort} onChange={(e) => setServerPort(Number(e.target.value))} />
                 </FieldContent>
             </Field>
         </FramePanel>
@@ -107,7 +110,7 @@ export function SetupPageBasicInfo({ currentStep, setCurrentStep }: StepState) {
                 <FieldTitle>Server Version</FieldTitle>
                 <FieldDescription>Select the Minecraft version for your server</FieldDescription>
                 <FieldContent>
-                    <Select value={minecraftVersion} onValueChange={setMinecraftVersion}>
+                    <Select value={minecraftVersion} onValueChange={(value) => value !== null && setMinecraftVersion(value)}>
                         <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select a version" />
                         </SelectTrigger>
@@ -129,7 +132,7 @@ export function SetupPageBasicInfo({ currentStep, setCurrentStep }: StepState) {
                 <FieldTitle>Server Type</FieldTitle>
                 <FieldDescription>Select the type of server you want to create</FieldDescription>
                 <FieldContent>
-                    <Select value={serverType} onValueChange={setServerType}>
+                    <Select value={serverType} onValueChange={(value) => value !== null && setServerType(value)}>
                         <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select a type" />
                         </SelectTrigger>
@@ -177,7 +180,7 @@ export function SetupPageBasicInfo({ currentStep, setCurrentStep }: StepState) {
                 <FieldTitle>Game Mode</FieldTitle>
                 <FieldDescription>Select the game mode for your server</FieldDescription>
                 <FieldContent>
-                    <Select value={gameMode} onValueChange={setGameMode}>
+                    <Select value={gameMode} onValueChange={(value) => value !== null && setGameMode(value)}>
                         <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select a game mode" />
                         </SelectTrigger>
@@ -196,7 +199,7 @@ export function SetupPageBasicInfo({ currentStep, setCurrentStep }: StepState) {
                 <FieldTitle>Difficulty</FieldTitle>
                 <FieldDescription>Select the difficulty for your server</FieldDescription>
                 <FieldContent>
-                    <Select value={difficulty} onValueChange={setDifficulty}>
+                    <Select value={difficulty} onValueChange={(value) => value !== null && setDifficulty(value)}>
                         <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select a difficulty" />
                         </SelectTrigger>
@@ -244,7 +247,7 @@ export function SetupPageSecurity({ currentStep, setCurrentStep }: StepState) {
             <FieldLabel>Access Mode</FieldLabel>
             <FieldDescription>Choose how players can join your server</FieldDescription>
             <FieldContent>
-              <Select value={accessMode} onValueChange={setAccessMode}>
+              <Select value={accessMode} onValueChange={(value) => value !== null && setAccessMode(value)}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select access mode" />
                 </SelectTrigger>
@@ -380,8 +383,12 @@ export function SetupPageMods({ currentStep, setCurrentStep }: StepState) {
   )
 }
 
-export function SetupPageReview() {
-    const { serverType, minecraftVersion, serverName, serverMOTD, gameMode, difficulty, worldSeed, accessMode } = useSetupSettings()
+export function SetupPageReview(_stepState: StepState) {
+    const { serverType, minecraftVersion, serverName, serverMOTD, serverPort, gameMode, difficulty, worldSeed, accessMode } = useSetupSettings()
+    const saveConfig = trpc.config.set.useMutation();
+    const initializeServer = trpc.config.initializeServer.useMutation();
+    const router = useRouter();
+    
   return (
     <div className="flex flex-col w-full h-full max-w-2xl mx-auto gap-4">
       <Frame stacked>
@@ -445,7 +452,25 @@ export function SetupPageReview() {
             <FrameDescription>Once you have confirmed your settings, click the button to create your server.</FrameDescription>
           </div>
           <div className="ml-auto">
-            <Button><CheckIcon />Create Server</Button>
+            <Button onClick={() => {
+                saveConfig.mutate({
+                    serverType,
+                    minecraftVersion,
+                    serverName,
+                    serverMOTD,
+                    serverPort,
+                    worldSeed,
+                    gameMode,
+                    difficulty,
+                    accessMode,
+                    allowedPlayers: [],
+                    selectedMods: []
+                }, {
+                    onSuccess: () => initializeServer.mutate(undefined, {
+                        onSuccess: () => router.push('/dashboard')
+                    }),
+                });
+            }}><CheckIcon />Create Server</Button>
           </div>
         </FrameHeader>
       </Frame>
