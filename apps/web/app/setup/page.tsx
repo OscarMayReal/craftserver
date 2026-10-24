@@ -1,10 +1,11 @@
 "use client"
 import { Button } from "@workspace/ui/components/button"
-import { ArrowRightIcon } from "lucide-react"
+import { ArrowRightIcon, CheckIcon, PlusIcon, XIcon } from "lucide-react"
 import { motion } from "motion/react"
 import { useState } from "react"
 import { StepperUi } from "@/components/stepper"
 import type { StepState } from "@/components/stepper"
+import { SetupProvider, useSetupSettings } from "@/components/setup-context"
 
 
 import {
@@ -23,11 +24,12 @@ import { Checkbox } from "@workspace/ui/components/checkbox"
 
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from "@workspace/ui/components/empty"
 import { UserPlus } from "lucide-react"
+import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@workspace/ui/components/item"
 
 const steps = [
   { title: "Basic Info", component: <SetupPageBasicInfo /> },
   { title: "Security", component: <SetupPageSecurity /> },
-  { title: "Plugins", component: <SetupPagePlugins /> },
+  { title: "Mods", component: <SetupPageMods /> },
   { title: "Review", component: <SetupPageReview /> },
 ]
 
@@ -48,12 +50,18 @@ export function SetupPageBasicInfo({ currentStep, setCurrentStep }: StepState) {
                 setVersions(data.versions)
             })
     }
-    const [showSnapshots, setShowSnapshots] = useState(false)
-    const [mojangEula, setMojangEula] = useState(false)
-    const [serverType, setServerType] = useState("Vanilla")
-    const [minecraftVersion, setMinecraftVersion] = useState("")
-    const [serverName, setServerName] = useState("")
-    const [serverMOTD, setServerMOTD] = useState("")
+    const {
+      showSnapshots, setShowSnapshots,
+      serverType, setServerType,
+      mojangEula, setMojangEula,
+      minecraftVersion, setMinecraftVersion,
+      serverName, setServerName,
+      serverMOTD, setServerMOTD,
+      serverPort, setServerPort,
+      worldSeed, setWorldSeed,
+      gameMode, setGameMode,
+      difficulty, setDifficulty,
+    } = useSetupSettings()
   return (
     <div className="flex flex-col w-full h-full max-w-2xl mx-auto gap-4">
       <Frame stacked>
@@ -84,7 +92,7 @@ export function SetupPageBasicInfo({ currentStep, setCurrentStep }: StepState) {
                 <FieldTitle>Server Port</FieldTitle>
                 <FieldDescription>You can probably leave this as is, unless you are running multiple servers</FieldDescription>
                 <FieldContent>
-                    <Input placeholder="Server Port" value="25565" />
+                    <Input placeholder="Server Port" value={serverPort} onChange={(e) => setServerPort(e.target.value)} />
                 </FieldContent>
             </Field>
         </FramePanel>
@@ -129,7 +137,7 @@ export function SetupPageBasicInfo({ currentStep, setCurrentStep }: StepState) {
                             <SelectGroup>
                                 <SelectItem value="Vanilla">Vanilla</SelectItem>
                                 <SelectItem value="Fabric">Fabric</SelectItem>
-                                <SelectItem value="Paper">Paper</SelectItem>
+                                {/* <SelectItem value="Paper">Paper</SelectItem> */}
                             </SelectGroup>
                         </SelectContent>
                     </Select>
@@ -150,6 +158,61 @@ export function SetupPageBasicInfo({ currentStep, setCurrentStep }: StepState) {
             <label htmlFor="show-snapshot-versions">Show Snapshots, pre-releases, and release candidates</label>
         </FrameFooter>
       </Frame>
+      <Frame stacked>
+        <FrameHeader>
+          <FrameTitle>World Configuration</FrameTitle>
+          <FrameDescription>Configure your server's world</FrameDescription>
+        </FrameHeader>
+        <FramePanel>
+          <Field>
+            <FieldTitle>World seed</FieldTitle>
+            <FieldDescription>The seed used to generate the world, leave blank for a random seed</FieldDescription>
+            <FieldContent>
+              <Input placeholder="Enter world seed" value={worldSeed} onChange={(e) => setWorldSeed(e.target.value)} />
+            </FieldContent>
+          </Field>
+        </FramePanel>
+        <FramePanel>
+            <Field>
+                <FieldTitle>Game Mode</FieldTitle>
+                <FieldDescription>Select the game mode for your server</FieldDescription>
+                <FieldContent>
+                    <Select value={gameMode} onValueChange={setGameMode}>
+                        <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select a game mode" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectGroup>
+                                <SelectItem value="Survival">Survival</SelectItem>
+                                <SelectItem value="Creative">Creative</SelectItem>
+                            </SelectGroup>
+                        </SelectContent>
+                    </Select>
+                </FieldContent>
+            </Field>
+        </FramePanel>
+        <FramePanel>
+            <Field>
+                <FieldTitle>Difficulty</FieldTitle>
+                <FieldDescription>Select the difficulty for your server</FieldDescription>
+                <FieldContent>
+                    <Select value={difficulty} onValueChange={setDifficulty}>
+                        <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select a difficulty" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectGroup>
+                                <SelectItem value="Peaceful">Peaceful</SelectItem>
+                                <SelectItem value="Easy">Easy</SelectItem>
+                                <SelectItem value="Normal">Normal</SelectItem>
+                                <SelectItem value="Hard">Hard</SelectItem>
+                            </SelectGroup>
+                        </SelectContent>
+                    </Select>
+                </FieldContent>
+            </Field>
+        </FramePanel>
+      </Frame>
       <Frame>
         <FrameHeader className="flex flex-row items-center gap-3">
           <div>
@@ -167,7 +230,8 @@ export function SetupPageBasicInfo({ currentStep, setCurrentStep }: StepState) {
 }
 
 export function SetupPageSecurity({ currentStep, setCurrentStep }: StepState) {
-  const [accessMode, setAccessMode] = useState<string>("private")
+  const [newPlayer, setNewPlayer] = useState<string>("")
+  const { accessMode, setAccessMode, allowedPlayers, setAllowedPlayers } = useSetupSettings()
   return (
     <div className="flex flex-col w-full h-full max-w-2xl mx-auto gap-4">
       <Frame stacked>
@@ -206,26 +270,45 @@ export function SetupPageSecurity({ currentStep, setCurrentStep }: StepState) {
               <FieldLabel>Add Players</FieldLabel>
               <FieldDescription>Enter player username</FieldDescription>
               <FieldContent>
-                <Input placeholder="Enter player username" />
+                <Input placeholder="Enter player username" value={newPlayer} onChange={(e) => setNewPlayer(e.target.value)} onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    setAllowedPlayers([...allowedPlayers, newPlayer])
+                    setNewPlayer("")
+                  }
+                }} />
               </FieldContent>
             </Field>
           </FramePanel>
           <FramePanel>
-            <Empty className="gap-1">
+            {allowedPlayers.length > 0 && (
+              <div className="flex flex-col gap-2">
+                {allowedPlayers.map((player, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <span>{player}</span>
+                    <Button variant="ghost" size="sm" onClick={() => setAllowedPlayers(allowedPlayers.filter((_, i) => i !== index))}>
+                      <XIcon />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {allowedPlayers.length === 0 && (
+              <Empty className="gap-1">
                 <EmptyMedia variant="icon">
                   <UserPlus />
                 </EmptyMedia>
                 <EmptyTitle>No players added</EmptyTitle>
                 <EmptyDescription>An empty access list will not allow any players to join</EmptyDescription>
-            </Empty>
+              </Empty>
+            )}
           </FramePanel>
         </Frame>
       )}
       <Frame>
         <FrameHeader className="flex flex-row items-center gap-3">
           <div>
-            <FrameTitle>Continue to Plugins</FrameTitle>
-            <FrameDescription>Review and configure plugins for your server</FrameDescription>
+            <FrameTitle>Continue to Mods</FrameTitle>
+            <FrameDescription>Review and configure mods for your server</FrameDescription>
           </div>
           <div className="ml-auto">
             <Button onClick={() => setCurrentStep(currentStep + 1)}>Next<ArrowRightIcon /></Button>
@@ -237,18 +320,135 @@ export function SetupPageSecurity({ currentStep, setCurrentStep }: StepState) {
   )
 }
 
-export function SetupPagePlugins() {
+function ExtensionItem({logo, title, description}: {logo: string, title: string, description: string}) {
+    const { selectedMods, setSelectedMods } = useSetupSettings()
+    const isAdded = selectedMods.includes(title)
   return (
-    <div>
-      <h1>Plugins</h1>
+    <FramePanel>
+        <Item className="p-0 gap-4">
+            <ItemMedia>
+                <img className="size-10 border-1 border-border rounded-md" src={logo} alt={title} />
+            </ItemMedia>
+            <ItemContent>
+                <ItemTitle>{title}</ItemTitle>
+                <ItemDescription>{description}</ItemDescription>
+            </ItemContent>
+            <ItemActions>
+                <Button variant={isAdded ? "destructive" : "outline"} onClick={() => setSelectedMods(isAdded ? selectedMods.filter((mod) => mod !== title) : [...selectedMods, title])}>{isAdded ? <XIcon /> : <PlusIcon />}{isAdded ? "Remove" : "Add"}</Button>
+            </ItemActions>
+        </Item>
+    </FramePanel>
+  )
+}
+
+export function SetupPageMods({ currentStep, setCurrentStep }: StepState) {
+  const { serverType } = useSetupSettings()
+  return (
+    <div className="flex flex-col w-full h-full max-w-2xl mx-auto gap-4">
+      {serverType === "Vanilla" ? (
+        <Frame>
+          <FrameHeader>
+            <FrameTitle>Mods not supported</FrameTitle>
+            <FrameDescription>Vanilla Minecraft does not support mods. Choose Fabric in Basic Info to add mods.</FrameDescription>
+          </FrameHeader>
+        </Frame>
+      ) : (
+        <Frame stacked>
+          <FrameHeader>
+            <FrameTitle>Recommended Mods</FrameTitle>
+            <FrameDescription>Mods available for your Fabric server</FrameDescription>
+          </FrameHeader>
+          <ExtensionItem logo="https://cdn.modrinth.com/data/1u6JkXh5/1aae10b5289feeba4b534ee408ce60bc01813165.png" title="WorldEdit" description="Build and edit your world with powerful tools" />
+          <ExtensionItem logo="https://cdn.modrinth.com/data/DYtfQEYj/1bd0bd5d7d1aac59722848847452026affbe3bae.png" title="Effortless Building" description="Makes building easier. For survival and creative mode." />
+          <ExtensionItem logo="https://cdn.modrinth.com/data/gvQqBUqZ/icon.png" title="Lithium" description="Optimize your server performance" />
+          <ExtensionItem logo="https://cdn.modrinth.com/data/9n1I001p/4cb3c8b48fbab0bcd2c04d0baca67ccf31e4ab7f.png" title="ServerPress" description="Multiplayer news mod for servers" />
+          <ExtensionItem logo="https://cdn.modrinth.com/data/lfHFW1mp/icon.png" title="JourneyMap" description="Real-time map used for mapping as you explore." />
+        </Frame>
+      )}
+      <Frame>
+        <FrameHeader className="flex flex-row items-center gap-3">
+          <div>
+            <FrameTitle>Continue to Review</FrameTitle>
+            <FrameDescription>Review your server configuration before creation</FrameDescription>
+          </div>
+          <div className="ml-auto">
+            <Button onClick={() => setCurrentStep(currentStep + 1)}>Next<ArrowRightIcon /></Button>
+          </div>
+        </FrameHeader>
+      </Frame>
     </div>
   )
 }
 
 export function SetupPageReview() {
+    const { serverType, minecraftVersion, serverName, serverMOTD, gameMode, difficulty, worldSeed, accessMode } = useSetupSettings()
   return (
-    <div>
-      <h1>Review</h1>
+    <div className="flex flex-col w-full h-full max-w-2xl mx-auto gap-4">
+      <Frame stacked>
+        <FrameHeader>
+          <FrameTitle>Review</FrameTitle>
+          <FrameDescription>Review your server configuration</FrameDescription>
+        </FrameHeader>
+        <FramePanel>
+          <Field className="flex flex-row gap-2">
+            <FieldLabel>Server Name:</FieldLabel>
+            <FieldDescription className="ml-auto text-end">{serverName}</FieldDescription>
+          </Field>  
+        </FramePanel>
+        <FramePanel>
+          <Field className="flex flex-row gap-2">
+            <FieldLabel>Server MOTD:</FieldLabel>
+            <FieldDescription className="ml-auto text-end">{serverMOTD}</FieldDescription>
+          </Field>  
+        </FramePanel>
+        <FramePanel>
+          <Field className="flex flex-row gap-2">
+            <FieldLabel>Server Type:</FieldLabel>
+            <FieldDescription className="ml-auto text-end">{serverType}</FieldDescription>
+          </Field>  
+        </FramePanel>
+        <FramePanel>
+          <Field className="flex flex-row gap-2">
+            <FieldLabel>Server Version:</FieldLabel>
+            <FieldDescription className="ml-auto text-end">{minecraftVersion}</FieldDescription>
+          </Field>  
+        </FramePanel>
+        <FramePanel>
+          <Field className="flex flex-row gap-2">
+            <FieldLabel>Gamemode:</FieldLabel>
+            <FieldDescription className="ml-auto text-end">{gameMode}</FieldDescription>
+          </Field>  
+        </FramePanel>
+        <FramePanel>
+          <Field className="flex flex-row gap-2">
+            <FieldLabel>Difficulty:</FieldLabel>
+            <FieldDescription className="ml-auto text-end">{difficulty}</FieldDescription>
+          </Field>  
+        </FramePanel>
+        <FramePanel>
+          <Field className="flex flex-row gap-2">
+            <FieldLabel>World Seed:</FieldLabel>
+            <FieldDescription className="ml-auto text-end">{worldSeed}</FieldDescription>
+          </Field>  
+        </FramePanel>
+        <FramePanel>
+          <Field className="flex flex-row gap-2">
+            <FieldLabel>Access Mode:</FieldLabel>
+            <FieldDescription className="ml-auto text-end">{accessMode}</FieldDescription>
+          </Field>  
+        </FramePanel>
+      </Frame>
+      <Frame>
+        <FrameHeader className="flex flex-row items-center gap-3">
+          <div>
+            <FrameTitle>Create Server</FrameTitle>
+            <FrameDescription>Once you have confirmed your settings, click the button to create your server.</FrameDescription>
+          </div>
+          <div className="ml-auto">
+            <Button><CheckIcon />Create Server</Button>
+          </div>
+        </FrameHeader>
+      </Frame>
     </div>
   )
 }
@@ -264,7 +464,9 @@ export default function SetupPage() {
     }
     return (
         <div className="flex flex-col items-center justify-center w-full h-full gap-2 px-4  overflow-y-auto">
-            <StepperUi steps={steps} />
+            <SetupProvider>
+              <StepperUi steps={steps} />
+            </SetupProvider>
         </div>
     )
 }
