@@ -1,6 +1,7 @@
 "use client"
+import { trpc } from "@/lib/trpc"
 import { SidebarProvider, Sidebar, SidebarContent, SidebarInset, SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarMenuButton } from "@workspace/ui/components/sidebar"
-import { FolderIcon, HomeIcon, PcCaseIcon, SettingsIcon } from "lucide-react";
+import { FolderIcon, HomeIcon, PcCaseIcon, PuzzleIcon, SettingsIcon } from "lucide-react";
 import Link from "next/link";
 
 export default function DashboardLayout({
@@ -8,6 +9,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const config = trpc.config.get.useQuery()
   return <SidebarProvider>
     <Sidebar collapsible="icon">
         <SidebarContent>
@@ -24,6 +26,11 @@ export default function DashboardLayout({
                             <FolderIcon /> Files
                         </SidebarMenuButton>
                     </Link>
+                    {config.data?.serverType.toLowerCase() === "fabric" && <Link href="/dashboard/mods">
+                        <SidebarMenuButton>
+                            <PuzzleIcon /> Mods
+                        </SidebarMenuButton>
+                    </Link>}
                     <Link href="/dashboard/config">
                         <SidebarMenuButton>
                             <SettingsIcon /> Config

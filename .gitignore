@@ -20,6 +20,7 @@ out/
 # production
 build
 dist
+.craftserver-runtime/
 
 # Minecraft server runtime data (worlds, downloaded jar, config, and logs)
 packages/server/data/

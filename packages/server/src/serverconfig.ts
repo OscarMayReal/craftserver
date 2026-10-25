@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import { z } from 'zod';
 import { publicProcedure, router } from './trpc.js';
-import { downloadServer, downloadSelectedMods, getServerUptimeMs, installFabricServer, jarPath, markServerStarted, markServerStopped, server, serverPath } from './server.js';
+import { downloadServer, downloadSelectedMods, getLatestMinecraftRelease, getServerUptimeMs, installFabricServer, jarPath, markServerStarted, markServerStopped, server, serverPath } from './server.js';
 
 export type Config = {
   serverName: string;
@@ -13,6 +13,9 @@ export type Config = {
   gameMode: string;
   difficulty: string;
   offlineMode: boolean;
+  openRouterApiKey: string;
+  openRouterBaseUrl: string;
+  openRouterModel: string;
   accessMode: 'public' | 'private';
   allowedPlayers: string[];
   selectedMods: string[];
@@ -28,6 +31,9 @@ const serverConfigSchema = z.object({
   gameMode: z.string(),
   difficulty: z.string(),
   offlineMode: z.boolean().default(false),
+  openRouterApiKey: z.string().default(''),
+  openRouterBaseUrl: z.string().default('https://openrouter.ai/api/v1'),
+  openRouterModel: z.string().default(''),
   accessMode: z.enum(['public', 'private']),
   allowedPlayers: z.array(z.string().regex(/^[A-Za-z0-9_]{1,16}$/)).default([]),
   selectedMods: z.array(z.string()),
@@ -175,6 +181,38 @@ const serverConfigRouter = router({
     });
     await startConfiguredServer(readServerConfig());
     return true;
+  }),
+  updateServer: publicProcedure.mutation(async () => {
+    const config = readServerConfig();
+    await new Promise<void>((resolve, reject) => {
+      server.stopServer((error) => {
+        if (error) reject(error);
+        else {
+          markServerStopped();
+          resolve();
+        }
+      });
+    });
+
+    let configWasUpdated = false;
+    try {
+      const minecraftVersion = await getLatestMinecraftRelease();
+      const updatedConfig = { ...config, minecraftVersion };
+      await prepareConfiguredServer(updatedConfig);
+      fs.writeFileSync('./data/serverconfig.json', JSON.stringify(updatedConfig, null, 2));
+      configWasUpdated = true;
+      await startConfiguredServer(updatedConfig);
+      return { minecraftVersion };
+    } catch (error) {
+      if (!configWasUpdated) {
+        try {
+          await startConfiguredServer(config);
+        } catch (restartError) {
+          throw new Error(`Server update failed: ${error instanceof Error ? error.message : String(error)}. The previous server could not be restarted: ${restartError instanceof Error ? restartError.message : String(restartError)}`);
+        }
+      }
+      throw error;
+    }
   }),
   isServerConfigured: publicProcedure.query(() => {
     return fs.existsSync('./data/serverconfig.json');

@@ -14,7 +14,13 @@ server.onChat(({ player, message }) => {
     }
 
     const username = `${player.slice(0, 12)}_bot`;
-    const spawn = () => createBot({ PlayerName: player, serverPort: config.serverPort });
+    const spawn = () => createBot({
+      PlayerName: player,
+      serverPort: config.serverPort,
+      openRouterApiKey: config.openRouterApiKey,
+      openRouterBaseUrl: config.openRouterBaseUrl,
+      openRouterModel: config.openRouterModel,
+    });
 
     if (config.accessMode === 'private') {
       void server.runCommand(`whitelist add ${username}`)

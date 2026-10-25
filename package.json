@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "build": "turbo build",
+    "package:binary": "bun run build && bun scripts/package.ts",
     "dev": "turbo dev",
     "lint": "turbo lint",
     "format": "turbo format",

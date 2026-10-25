@@ -2,7 +2,7 @@
 import { Button } from "@workspace/ui/components/button"
 import { ArrowRightIcon, CheckIcon, PlusIcon, XIcon } from "lucide-react"
 import { motion } from "motion/react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { StepperUi } from "@/components/stepper"
 import type { StepState } from "@/components/stepper"
 import { SetupProvider, useSetupSettings } from "@/components/setup-context"
@@ -46,13 +46,17 @@ type MinecraftVersion = {
 
 function SetupPageBasicInfo({ currentStep, setCurrentStep }: StepState) {
     const [versions, setVersions] = useState<MinecraftVersion[]>([])
-    if (versions.length === 0) {
+    useEffect(() => {
         fetch("/api/version_manifest.json")
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) throw new Error("Could not load Minecraft versions")
+                return response.json()
+            })
             .then(data => {
                 setVersions(data.versions)
             })
-    }
+            .catch((error: unknown) => console.error(error))
+    }, [])
     const {
       showSnapshots, setShowSnapshots,
       serverType, setServerType,
@@ -387,7 +391,7 @@ function SetupPageMods({ currentStep, setCurrentStep }: StepState) {
   )
 }
 
-export function SetupPageReview(_stepState: StepState) {
+function SetupPageReview(_stepState: StepState) {
     const { serverType, minecraftVersion, serverName, serverMOTD, serverPort, gameMode, difficulty, worldSeed, accessMode, allowedPlayers, selectedMods } = useSetupSettings()
     const saveConfig = trpc.config.set.useMutation();
     const initializeServer = trpc.config.initializeServer.useMutation();
@@ -506,7 +510,7 @@ export default function SetupPage() {
     )
 }
 
-export function SetupPageIntro({ setComplete }: { setComplete: (complete: boolean) => void }) {
+function SetupPageIntro({ setComplete }: { setComplete: (complete: boolean) => void }) {
   return (
     <div className="flex flex-col items-center justify-center w-full h-full gap-2">
       <motion.div

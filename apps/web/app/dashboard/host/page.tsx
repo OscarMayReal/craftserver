@@ -49,6 +49,7 @@ function formatCpuTemperature(temperature: number | null | undefined) {
 
 export default function DashboardPage() {
     const status = trpc.status.host.get.useQuery(undefined, { refetchInterval: 5_000 });
+    const serverStatus = trpc.status.get.useQuery(undefined, { refetchInterval: 5_000 });
     const thermals = trpc.status.host.thermals.useQuery(undefined, { refetchInterval: 5_000 });
     const refreshStatus = () => {
         void status.refetch();
@@ -66,7 +67,7 @@ export default function DashboardPage() {
                 <Tooltip>
                     <TooltipTrigger render={<Button onClick={() => {
                         // restartServer.mutate();
-                    }} disabled={!status.data?.serverRunning || false} variant="outline" size="icon"><RefreshCwIcon /></Button>} />
+                    }} disabled={!serverStatus.data?.serverRunning} variant="outline" size="icon"><RefreshCwIcon /></Button>} />
                     <TooltipContent>
                         Restart Host
                     </TooltipContent>

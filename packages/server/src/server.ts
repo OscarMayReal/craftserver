@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { createRequire } from "node:module";
 import { createConnection } from "node:net";
 import path from "node:path";
 import { promisify } from "node:util";
+import { download } from "minecraft-wrap";
 
 // Bun's child_process shim returns a writable stdin stream without Node's
 // setEncoding() method. minecraft-wrap calls it unconditionally, although it
@@ -23,9 +23,6 @@ if (bunRuntime && typeof writeStreamPrototype.setEncoding !== "function") {
     });
 }
 
-const require = createRequire(import.meta.url);
-const { download } = require("minecraft-wrap");
-
 export const jarPath = path.resolve("./data/mcserver.jar");
 export const serverPath = path.resolve("./data/mcserver");
 const fabricJarPath = path.join(serverPath, "fabric-server-launch.jar");
@@ -40,6 +37,12 @@ const downloadPromise = (version: string, name: string) => new Promise<void>((re
 
 export function downloadServer(version: string): Promise<void> {
     return downloadPromise(version, jarPath);
+}
+
+export async function getLatestMinecraftRelease(): Promise<string> {
+    const manifest = await fetchJson<{ latest?: { release?: string } }>("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json");
+    if (!manifest.latest?.release) throw new Error("Could not determine the latest Minecraft release");
+    return manifest.latest.release;
 }
 
 const recommendedMods: Record<string, string> = {

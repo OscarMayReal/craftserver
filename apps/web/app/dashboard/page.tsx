@@ -61,14 +61,25 @@ export default function DashboardPage() {
     const restartServer = trpc.config.restartServer.useMutation({ onSuccess: refreshStatus });
     const stopServer = trpc.config.stopServer.useMutation({ onSuccess: refreshStatus });
     const startServer = trpc.config.startServer.useMutation({ onSuccess: refreshStatus });
-    const serverActionPending = restartServer.isPending || stopServer.isPending || startServer.isPending;
-    if (versions.length === 0) {
+    const updateServer = trpc.config.updateServer.useMutation({
+        onSuccess: async () => {
+            await Promise.all([config.refetch(), status.refetch(), players.refetch(), logs.refetch()]);
+        },
+        onError: refreshStatus,
+    });
+    const serverActionPending = restartServer.isPending || stopServer.isPending || startServer.isPending || updateServer.isPending;
+    const latestRelease = versions.find(version => version.type === "release")?.id;
+    useEffect(() => {
         fetch("/api/version_manifest.json")
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) throw new Error("Could not load Minecraft versions")
+                return response.json()
+            })
             .then(data => {
                 setVersions(data.versions)
             })
-    }
+            .catch((error: unknown) => console.error(error))
+    }, [])
     return <div className="p-6">
         <div className="flex flex-row items-center">
             <SidebarTrigger className="mr-2" />
@@ -153,11 +164,19 @@ export default function DashboardPage() {
                 </ItemContent>
             </Item>
         </div>
-        {config.data?.minecraftVersion && config.data.minecraftVersion !== versions.filter(v => v.type === "release")[0]?.id && <Alert className="mt-6">
+        {config.data?.minecraftVersion && latestRelease && config.data.minecraftVersion !== latestRelease && <Alert className="mt-6">
             <AlertTitle>Update Available</AlertTitle>
-            <AlertDescription>
-                A new version of the server is available. Please update to the latest version.
+            <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+                <span>A new version of the server is available. Updating will stop the server, install Minecraft {latestRelease}, and start it again.</span>
+                <Button onClick={() => updateServer.mutate()} disabled={serverActionPending}>
+                    <RefreshCwIcon className={updateServer.isPending ? "animate-spin" : ""} />
+                    {updateServer.isPending ? "Updating server…" : "Update and restart"}
+                </Button>
             </AlertDescription>
+        </Alert>}
+        {updateServer.error && <Alert variant="destructive" className="mt-6">
+            <AlertTitle>Server update failed</AlertTitle>
+            <AlertDescription>{updateServer.error.message}</AlertDescription>
         </Alert>}
         <div className="mt-6">
             <h1 className="text-xl font-medium">Online Players</h1>

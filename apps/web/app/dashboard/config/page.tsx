@@ -17,7 +17,7 @@ import { UserPlus } from "lucide-react";
 export default function ConfigPage() {
     return (
         <SetupProvider>
-            <div className="p-6 flex flex-col gap-4">
+            <div className="flex h-svh flex-col gap-4 overflow-y-auto p-6">
                 <h1 className="text-2xl font-medium">Config</h1>
                 <ConfigPageContent />
             </div>
@@ -33,6 +33,9 @@ function ConfigPageContent() {
     const restartServer = trpc.config.restartServer.useMutation()
     const config = trpc.config.get.useQuery()
     const [offlineMode, setOfflineMode] = useState(false)
+    const [openRouterApiKey, setOpenRouterApiKey] = useState("")
+    const [openRouterBaseUrl, setOpenRouterBaseUrl] = useState("https://openrouter.ai/api/v1")
+    const [openRouterModel, setOpenRouterModel] = useState("")
     const [accessMode, setAccessMode] = useState<"public" | "private">("public")
     const [allowedPlayers, setAllowedPlayers] = useState<string[]>([])
     const [newPlayer, setNewPlayer] = useState("")
@@ -42,6 +45,9 @@ function ConfigPageContent() {
         setGameMode(config.data.gameMode)
         setDifficulty(config.data.difficulty)
         setOfflineMode(config.data.offlineMode)
+        setOpenRouterApiKey(config.data.openRouterApiKey ?? "")
+        setOpenRouterBaseUrl(config.data.openRouterBaseUrl ?? "https://openrouter.ai/api/v1")
+        setOpenRouterModel(config.data.openRouterModel ?? "")
         setAccessMode(config.data.accessMode)
         setAllowedPlayers(config.data.allowedPlayers ?? [])
       }
@@ -113,6 +119,26 @@ function ConfigPageContent() {
                         </FieldContent>
                     </Field>
                 </FramePanel>
+                {offlineMode && <FramePanel>
+                    <Field>
+                        <FieldTitle>OpenRouter</FieldTitle>
+                        <FieldDescription>These settings are available to the bot's :ai command.</FieldDescription>
+                        <FieldContent className="flex flex-col gap-3">
+                            <div className="w-full">
+                                <FieldLabel htmlFor="openrouter-api-key">OpenRouter API key</FieldLabel>
+                                <Input id="openrouter-api-key" type="password" autoComplete="off" placeholder="sk-or-v1-…" value={openRouterApiKey} onChange={(event) => setOpenRouterApiKey(event.target.value)} />
+                            </div>
+                            <div className="w-full">
+                                <FieldLabel htmlFor="openrouter-base-url">OpenRouter base URL</FieldLabel>
+                                <Input id="openrouter-base-url" type="url" placeholder="https://openrouter.ai/api/v1" value={openRouterBaseUrl} onChange={(event) => setOpenRouterBaseUrl(event.target.value)} />
+                            </div>
+                            <div className="w-full">
+                                <FieldLabel htmlFor="openrouter-model">OpenRouter model</FieldLabel>
+                                <Input id="openrouter-model" placeholder="provider/model" value={openRouterModel} onChange={(event) => setOpenRouterModel(event.target.value)} />
+                            </div>
+                        </FieldContent>
+                    </Field>
+                </FramePanel>}
                 <FrameFooter>
                     <Button onClick={() => {
                         updateConfig.mutate({
@@ -120,6 +146,9 @@ function ConfigPageContent() {
                             gameMode,
                             difficulty,
                             offlineMode,
+                            openRouterApiKey,
+                            openRouterBaseUrl,
+                            openRouterModel,
                             accessMode,
                             allowedPlayers,
                         }, {
