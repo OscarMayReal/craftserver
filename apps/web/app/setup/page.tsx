@@ -47,7 +47,7 @@ type MinecraftVersion = {
 function SetupPageBasicInfo({ currentStep, setCurrentStep }: StepState) {
     const [versions, setVersions] = useState<MinecraftVersion[]>([])
     useEffect(() => {
-        fetch("/api/version_manifest.json")
+        fetch("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json")
             .then(response => {
                 if (!response.ok) throw new Error("Could not load Minecraft versions")
                 return response.json()
@@ -352,8 +352,46 @@ function ExtensionItem({logo, title, description}: {logo: string, title: string,
   )
 }
 
+const recommendedMods = [
+  { title: "WorldEdit", slug: "worldedit", logo: "https://cdn.modrinth.com/data/1u6JkXh5/1aae10b5289feeba4b534ee408ce60bc01813165.png", description: "Build and edit your world with powerful tools" },
+  { title: "Effortless Building", slug: "effortless-building", logo: "https://cdn.modrinth.com/data/DYtfQEYj/1bd0bd5d7d1aac59722848847452026affbe3bae.png", description: "Makes building easier. For survival and creative mode." },
+  { title: "Lithium", slug: "lithium", logo: "https://cdn.modrinth.com/data/gvQqBUqZ/icon.png", description: "Optimize your server performance" },
+  { title: "ServerPress", slug: "serverpress", logo: "https://cdn.modrinth.com/data/9n1I001p/4cb3c8b48fbab0bcd2c04d0baca67ccf31e4ab7f.png", description: "Multiplayer news mod for servers" },
+  { title: "JourneyMap", slug: "journeymap", logo: "https://cdn.modrinth.com/data/lfHFW1mp/icon.png", description: "Real-time map used for mapping as you explore." },
+]
+
 function SetupPageMods({ currentStep, setCurrentStep }: StepState) {
-  const { serverType } = useSetupSettings()
+  const { serverType, minecraftVersion, selectedMods, setSelectedMods } = useSetupSettings()
+  const [compatibleMods, setCompatibleMods] = useState<string[] | null>(null)
+  const [compatibilityError, setCompatibilityError] = useState<string | null>(null)
+  useEffect(() => {
+    if (serverType !== "Fabric" || !minecraftVersion) return
+    let active = true
+    setCompatibleMods(null)
+    setCompatibilityError(null)
+    void Promise.all(recommendedMods.map(async (mod) => {
+      const query = new URLSearchParams({
+        game_versions: JSON.stringify([minecraftVersion]),
+        loaders: JSON.stringify(["fabric"]),
+      })
+      const response = await fetch(`https://api.modrinth.com/v2/project/${mod.slug}/version?${query}`)
+      if (!response.ok) throw new Error(`Could not check compatibility for ${mod.title}`)
+      const versions = await response.json() as { game_versions: string[]; loaders: string[] }[]
+      return versions.some((version) => version.game_versions.includes(minecraftVersion) && version.loaders.includes("fabric")) ? mod.title : null
+    })).then((results) => {
+      if (active) setCompatibleMods(results.filter((title): title is string => title !== null))
+    }).catch((error: unknown) => {
+      if (active) setCompatibilityError(error instanceof Error ? error.message : "Could not check mod compatibility")
+    })
+    return () => { active = false }
+  }, [minecraftVersion, serverType])
+
+  useEffect(() => {
+    if (!compatibleMods) return
+    const filtered = selectedMods.filter((title) => compatibleMods.includes(title))
+    if (filtered.length !== selectedMods.length) setSelectedMods(filtered)
+  }, [compatibleMods, selectedMods, setSelectedMods])
+
   return (
     <div className="flex flex-col w-full h-full max-w-2xl mx-auto gap-4">
       {serverType === "Vanilla" ? (
@@ -367,13 +405,10 @@ function SetupPageMods({ currentStep, setCurrentStep }: StepState) {
         <Frame stacked>
           <FrameHeader>
             <FrameTitle>Recommended Mods</FrameTitle>
-            <FrameDescription>Mods available for your Fabric server</FrameDescription>
+            <FrameDescription>Mods available for Minecraft {minecraftVersion}</FrameDescription>
           </FrameHeader>
-          <ExtensionItem logo="https://cdn.modrinth.com/data/1u6JkXh5/1aae10b5289feeba4b534ee408ce60bc01813165.png" title="WorldEdit" description="Build and edit your world with powerful tools" />
-          <ExtensionItem logo="https://cdn.modrinth.com/data/DYtfQEYj/1bd0bd5d7d1aac59722848847452026affbe3bae.png" title="Effortless Building" description="Makes building easier. For survival and creative mode." />
-          <ExtensionItem logo="https://cdn.modrinth.com/data/gvQqBUqZ/icon.png" title="Lithium" description="Optimize your server performance" />
-          <ExtensionItem logo="https://cdn.modrinth.com/data/9n1I001p/4cb3c8b48fbab0bcd2c04d0baca67ccf31e4ab7f.png" title="ServerPress" description="Multiplayer news mod for servers" />
-          <ExtensionItem logo="https://cdn.modrinth.com/data/lfHFW1mp/icon.png" title="JourneyMap" description="Real-time map used for mapping as you explore." />
+          {compatibilityError ? <FramePanel><p role="alert" className="text-sm text-destructive">{compatibilityError}</p></FramePanel> : compatibleMods === null ? <FramePanel><p className="text-sm text-muted-foreground">Checking mod compatibility…</p></FramePanel> : recommendedMods.filter((mod) => compatibleMods.includes(mod.title)).map((mod) => <ExtensionItem key={mod.title} {...mod} />)}
+          {compatibleMods?.length === 0 && <FramePanel><p className="text-sm text-muted-foreground">No recommended mods support this Minecraft version.</p></FramePanel>}
         </Frame>
       )}
       <Frame>
@@ -393,6 +428,7 @@ function SetupPageMods({ currentStep, setCurrentStep }: StepState) {
 
 function SetupPageReview(_stepState: StepState) {
     const { serverType, minecraftVersion, serverName, serverMOTD, serverPort, gameMode, difficulty, worldSeed, accessMode, allowedPlayers, selectedMods } = useSetupSettings()
+    const [setupError, setSetupError] = useState<string | null>(null)
     const saveConfig = trpc.config.set.useMutation();
     const initializeServer = trpc.config.initializeServer.useMutation();
     const router = useRouter();
@@ -467,6 +503,7 @@ function SetupPageReview(_stepState: StepState) {
           </div>
           <div className="ml-auto">
             <Button onClick={() => {
+                setSetupError(null)
                 saveConfig.mutate({
                     serverType,
                     minecraftVersion,
@@ -481,12 +518,17 @@ function SetupPageReview(_stepState: StepState) {
                     selectedMods
                 }, {
                     onSuccess: () => initializeServer.mutate(undefined, {
-                        onSuccess: () => router.push('/dashboard')
+                        onSuccess: () => router.push('/dashboard'),
+                        onError: (error) => setSetupError(error.message),
                     }),
+                    onError: (error) => setSetupError(error.message),
                 });
-            }}><CheckIcon />Create Server</Button>
+            }} disabled={saveConfig.isPending || initializeServer.isPending}>
+              <CheckIcon />{saveConfig.isPending || initializeServer.isPending ? "Creating Server…" : "Create Server"}
+            </Button>
           </div>
         </FrameHeader>
+        {setupError && <FramePanel><p role="alert" className="text-sm text-destructive">Server setup failed: {setupError}</p></FramePanel>}
       </Frame>
     </div>
   )

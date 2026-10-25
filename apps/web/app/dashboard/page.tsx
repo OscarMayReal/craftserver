@@ -70,7 +70,7 @@ export default function DashboardPage() {
     const serverActionPending = restartServer.isPending || stopServer.isPending || startServer.isPending || updateServer.isPending;
     const latestRelease = versions.find(version => version.type === "release")?.id;
     useEffect(() => {
-        fetch("/api/version_manifest.json")
+        fetch("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json")
             .then(response => {
                 if (!response.ok) throw new Error("Could not load Minecraft versions")
                 return response.json()

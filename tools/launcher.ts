@@ -2,7 +2,10 @@ import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:f
 import { gunzipSync } from "node:zlib"
 import path from "node:path"
 import embeddedArchive from "../dist/web.tar.gz" with { type: "file" }
-import { startServerApp } from "../packages/server/src/app.ts"
+
+if (Bun.isStandaloneExecutable) {
+  process.chdir(path.dirname(path.resolve(process.execPath)))
+}
 
 const runtimeDirectory = path.resolve(process.env.CRAFTSERVER_RUNTIME_DIR ?? ".craftserver-runtime")
 const webDirectory = path.join(runtimeDirectory, "web")
@@ -83,6 +86,7 @@ function serveStaticFile(pathname: string) {
 }
 
 extractWebFiles()
+const { startServerApp } = await import("../packages/server/src/app.ts")
 startServerApp()
 
 const backendUrl = new URL(process.env.TRPC_SERVER_URL ?? `http://localhost:${process.env.TRPC_PORT ?? "3001"}/trpc`)
@@ -103,9 +107,6 @@ Bun.serve({
       target.pathname = `${backendUrl.pathname.replace(/\/trpc\/?$/, "")}/files/archive`
       target.search = url.search
       return proxyRequest(request, target)
-    }
-    if (url.pathname === "/api/version_manifest.json") {
-      return proxyRequest(request, new URL("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"))
     }
     return serveStaticFile(url.pathname)
   },

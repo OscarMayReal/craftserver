@@ -18,10 +18,6 @@ const nextConfig: NextConfig = {
           source: "/api/files/archive",
           destination: `${(process.env.TRPC_SERVER_URL ?? "http://localhost:3001/trpc").replace(/\/trpc\/?$/, "")}/files/archive`,
         },
-        {
-          source: "/api/version_manifest.json",
-          destination: "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json",
-        },
       ]
     },
   }),

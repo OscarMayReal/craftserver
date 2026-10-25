@@ -11,7 +11,7 @@ make sure you have a JDK installed (e.g. Temurin)
 
 Run `bun run build` to build and type-check the web app and server packages.
 
-Run `bun run package:binary` to create one self-contained Bun executable at `dist/craftserver` (Windows builds use `dist/craftserver.exe`). It embeds the web app and Bun runtime, then refreshes the extracted web files under `.craftserver-runtime` when it starts. Server files and Minecraft data are stored relative to the current directory, so run it from the directory where you want to keep its data. A JDK is still required for Minecraft server operations.
+Run `bun run package:binary` to create one self-contained Bun executable at `dist/craftserver` (Windows builds use `dist/craftserver.exe`). It embeds the web app and Bun runtime, then refreshes the extracted web files under `.craftserver-runtime` when it starts. In packaged mode, server files and Minecraft data are stored in a `data` directory beside the executable, regardless of the directory you launch it from. In development, data remains relative to the current working directory. A JDK is still required for Minecraft server operations.
 
 The executable listens on port `3000` for the web app and `3001` for the tRPC server. Set `WEB_PORT` or `TRPC_PORT` to change those ports. Build it on each target OS and architecture.
 
