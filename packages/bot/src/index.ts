@@ -9,6 +9,7 @@ import z from 'zod';
 import { Vec3 } from 'vec3';
 
 const activeBots = new Map<string, Bot>();
+type AiChatMessage = { role: 'user' | 'assistant'; content: string };
 const usefulBlockNames = new Set([
     'crafting_table', 'furnace', 'blast_furnace', 'smoker', 'ender_chest',
     'trapped_chest', 'barrel', 'hopper', 'dispenser', 'dropper',
@@ -54,7 +55,7 @@ export function createBot({
   openRouterModel: string;
 }): Bot {
 
-    var aiMessages = [];
+    const aiMessages: AiChatMessage[] = [];
   const openRouterConfig = {
     apiKey: openRouterApiKey,
     baseURL: openRouterBaseUrl,

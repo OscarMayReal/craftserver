@@ -1,6 +1,8 @@
 # CraftServer
 A simple Minecraft server manager
 
+Not only does it let you manage your server, it also includes a bot the can do various things, and even use AI if you configure an API key.
+
 ## Setup
 make sure you have a JDK installed (e.g. Temurin)
 > this can be easily done with homebrew on macOS: `brew install --cask temurin`
@@ -12,6 +14,22 @@ Run `bun run build` to build and type-check the web app and server packages.
 Run `bun run package:binary` to create one self-contained Bun executable at `dist/craftserver` (Windows builds use `dist/craftserver.exe`). It embeds the web app and Bun runtime, then refreshes the extracted web files under `.craftserver-runtime` when it starts. Server files and Minecraft data are stored relative to the current directory, so run it from the directory where you want to keep its data. A JDK is still required for Minecraft server operations.
 
 The executable listens on port `3000` for the web app and `3001` for the tRPC server. Set `WEB_PORT` or `TRPC_PORT` to change those ports. Build it on each target OS and architecture.
+
+## Server Managing
+
+there are many features of the server manager
+
+you can ban players, kick players easily from the player list on the main dashboard. you can also use the server console to run commands
+
+the files page has a file manager allowing you to manage files on your server, upload, download, delete files easily. you can even download whole folders as zip files.
+
+the config page allows you to easily edit the server settings.
+
+the host page shows you information about the host machine, and thermal information if available
+
+## Running
+
+just run the executable from github releases. it is recomended to run it in an empty folder. you can the go to http://{ip}:3000 in your browser to access the web app. it will take you to the setup wizard to help you configure your server.
 
 ## Server Bot
 When the server is in offline mode, a player can spawn a bot for themselves with `:spawnbot`. The bot responds to commands sent by that player in game.
@@ -77,7 +95,12 @@ setvar=count,0;while=count<3;chat=${count};modvar=count,+,1;endwhile
 
 the server bot can be controlled by an AI using the `:ai` command. The AI will respond to commands sent by the player in game.
 
+to use the bot, you need to have the server in offline mode. if it is not in offline mode, the bot will not work.
+
+to use AI, you need to configure an API key. you can do this in the config page in the web app
+
 the format for these commands is ":ai --Your message here"
+
 
 The tools it has access to are:
 

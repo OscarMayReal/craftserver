@@ -9,7 +9,7 @@ import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@works
 import { SidebarTrigger } from "@workspace/ui/components/sidebar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@workspace/ui/components/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@workspace/ui/components/tooltip";
-import { ClockIcon, HammerIcon, MemoryStickIcon, PlayIcon, RefreshCwIcon, SendIcon, ServerIcon, ShieldCheckIcon, StopCircleIcon, UserIcon, XIcon } from "lucide-react";
+import { BanIcon, ClockIcon, HammerIcon, MemoryStickIcon, PlayIcon, RefreshCwIcon, SendIcon, ServerIcon, ShieldCheckIcon, StopCircleIcon, UserIcon, XIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 type MinecraftVersion = {
@@ -186,7 +186,7 @@ export default function DashboardPage() {
                     <TableRow>
                         <TableHead className="w-[30px]" />
                         <TableHead>Name</TableHead>
-                        <TableHead className="w-[190px]" />
+                        <TableHead className="w-[300px]" />
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -196,10 +196,11 @@ export default function DashboardPage() {
                                 <UserIcon size={16} />
                             </TableCell>
                             <TableCell>{player}</TableCell>
-                            <TableCell className="w-[190px]">
-                                <div className="flex items-center gap-2">
+                            <TableCell className="w-[300px]">
+                                <div className="flex flex-wrap items-center gap-2">
                                     <UserOpButton username={player} />
                                     <UserKickButton username={player} playerList={players} />
+                                    <UserBanButton username={player} playerList={players} />
                                 </div>
                             </TableCell>
                         </TableRow>
@@ -299,4 +300,41 @@ function UserKickButton({username, playerList}: {username: string, playerList: R
             </DialogContent>
         </Dialog>
     )
+}
+
+function UserBanButton({ username, playerList }: { username: string, playerList: ReturnType<typeof trpc.status.online.useQuery> }) {
+    const [isOpen, setIsOpen] = useState(false)
+    const [reason, setReason] = useState("")
+    const banMutation = trpc.config.banPlayer.useMutation()
+
+    return <Dialog open={isOpen} onOpenChange={(open) => {
+        if (!banMutation.isPending) setIsOpen(open)
+    }}>
+        <DialogTrigger render={<Button size="sm" variant="destructive"><BanIcon /> Ban</Button>} />
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Ban {username}?</DialogTitle>
+                <DialogDescription>
+                    This bans the player from joining the server and disconnects them if they are online. You can optionally add a reason.
+                </DialogDescription>
+            </DialogHeader>
+            <Input aria-label="Ban reason" placeholder="Ban reason (optional)" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={200} disabled={banMutation.isPending} />
+            {banMutation.error && <p role="alert" className="text-sm text-destructive">{banMutation.error.message}</p>}
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setIsOpen(false)} disabled={banMutation.isPending}><XIcon /> Cancel</Button>
+                <Button variant="destructive" onClick={async () => {
+                    try {
+                        await banMutation.mutateAsync({ username, reason })
+                        setIsOpen(false)
+                        setReason("")
+                        await playerList.refetch()
+                    } catch {
+                        // The mutation error is shown in the confirmation dialog.
+                    }
+                }} disabled={banMutation.isPending}>
+                    <BanIcon /> {banMutation.isPending ? "Banning…" : "Ban player"}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 }

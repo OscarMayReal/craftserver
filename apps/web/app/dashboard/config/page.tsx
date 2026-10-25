@@ -32,6 +32,7 @@ function ConfigPageContent() {
     } = useSetupSettings()
     const restartServer = trpc.config.restartServer.useMutation()
     const config = trpc.config.get.useQuery()
+    const [maxPlayers, setMaxPlayers] = useState("20")
     const [offlineMode, setOfflineMode] = useState(false)
     const [openRouterApiKey, setOpenRouterApiKey] = useState("")
     const [openRouterBaseUrl, setOpenRouterBaseUrl] = useState("https://openrouter.ai/api/v1")
@@ -44,6 +45,7 @@ function ConfigPageContent() {
         setServerMOTD(config.data.serverMOTD)
         setGameMode(config.data.gameMode)
         setDifficulty(config.data.difficulty)
+        setMaxPlayers(String(config.data.maxPlayers ?? 20))
         setOfflineMode(config.data.offlineMode)
         setOpenRouterApiKey(config.data.openRouterApiKey ?? "")
         setOpenRouterBaseUrl(config.data.openRouterBaseUrl ?? "https://openrouter.ai/api/v1")
@@ -53,6 +55,8 @@ function ConfigPageContent() {
       }
     }, [config.data])
     const updateConfig = trpc.config.updateConfig.useMutation()
+    const parsedMaxPlayers = Number(maxPlayers)
+    const validMaxPlayers = Number.isInteger(parsedMaxPlayers) && parsedMaxPlayers >= 1 && parsedMaxPlayers <= 1000
     return (
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
             <Frame stacked>
@@ -66,6 +70,24 @@ function ConfigPageContent() {
                         <FieldDescription>This will be shown to players in the server list</FieldDescription>
                         <FieldContent>
                             <Input placeholder="Server MOTD" value={serverMOTD} onChange={(e) => setServerMOTD(e.target.value)} />
+                        </FieldContent>
+                    </Field>
+                </FramePanel>
+                <FramePanel>
+                    <Field>
+                        <FieldTitle>Maximum players</FieldTitle>
+                        <FieldDescription>Set how many players can be online at once (1–1000).</FieldDescription>
+                        <FieldContent>
+                            <Input
+                                type="number"
+                                min={1}
+                                max={1000}
+                                step={1}
+                                value={maxPlayers}
+                                onChange={(event) => setMaxPlayers(event.target.value)}
+                                aria-label="Maximum players"
+                                aria-invalid={!validMaxPlayers}
+                            />
                         </FieldContent>
                     </Field>
                 </FramePanel>
@@ -143,6 +165,7 @@ function ConfigPageContent() {
                     <Button onClick={() => {
                         updateConfig.mutate({
                             serverMOTD,
+                            maxPlayers: parsedMaxPlayers,
                             gameMode,
                             difficulty,
                             offlineMode,
@@ -160,7 +183,7 @@ function ConfigPageContent() {
                                 restartServer.mutate()
                             }
                         })
-                    }}><SaveIcon />Save and restart server</Button>
+                    }} disabled={!validMaxPlayers || updateConfig.isPending || restartServer.isPending}><SaveIcon />Save and restart server</Button>
                 </FrameFooter>
 
             </Frame>

@@ -7,6 +7,7 @@ export type Config = {
   serverName: string;
   serverMOTD: string;
   serverPort: number;
+  maxPlayers: number;
   minecraftVersion: string;
   serverType: string;
   worldSeed: string;
@@ -25,6 +26,7 @@ const serverConfigSchema = z.object({
   serverName: z.string(),
   serverMOTD: z.string(),
   serverPort: z.number(),
+  maxPlayers: z.number().int().min(1).max(1000).default(20),
   minecraftVersion: z.string(),
   serverType: z.string(),
   worldSeed: z.string(),
@@ -50,6 +52,7 @@ function serverProperties(config: Config) {
     'force-gamemode': 'true',
     gamemode: config.gameMode.toLowerCase(),
     'level-seed': config.worldSeed,
+    'max-players': config.maxPlayers,
     motd: config.serverMOTD,
     'online-mode': config.offlineMode ? 'false' : 'true',
     'query.port': config.serverPort,
@@ -134,6 +137,14 @@ const serverConfigRouter = router({
   })).mutation(async ({ input }) => {
     const reason = input.reason?.replace(/[\r\n]+/g, ' ').trim();
     await server.runCommand(`kick ${input.username}${reason ? ` ${reason}` : ''}`);
+    return true;
+  }),
+  banPlayer: publicProcedure.input(z.object({
+    username: z.string().regex(/^[A-Za-z0-9_]{1,16}$/),
+    reason: z.string().max(200).optional(),
+  })).mutation(async ({ input }) => {
+    const reason = input.reason?.replace(/[\r\n]+/g, ' ').trim();
+    await server.runCommand(`ban ${input.username}${reason ? ` ${reason}` : ''}`);
     return true;
   }),
   runCommand: publicProcedure.input(z.object({
