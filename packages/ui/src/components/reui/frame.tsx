@@ -26,7 +26,7 @@ const frameVariants = cva(
     // it. It is inset by the 1px border plus --frame-px, so subtracting exactly
     // that keeps the two arcs parallel. `ghost` drops the border term (no
     // border), `dense` pins it to the frame radius (panels sit flush).
-    "[--frame-panel-radius:calc(var(--frame-radius)-var(--frame-px)-1px)]",
+    "[--frame-panel-radius:calc(var(--frame-radius)_-_var(--frame-px)_-_1px)]",
   ],
   {
     variants: {
@@ -34,7 +34,7 @@ const frameVariants = cva(
         default: "border border-[var(--frame-border-color)] bg-clip-padding",
         inverse:
           "[--frame-panel-bg:color-mix(in_oklch,var(--color-muted)_40%,transparent)] border border-[var(--frame-border-color)] bg-background bg-clip-padding",
-        ghost: "[--frame-panel-radius:calc(var(--frame-radius)-var(--frame-px))]",
+        ghost: "[--frame-panel-radius:calc(var(--frame-radius)_-_var(--frame-px))]",
       },
       // Bars read as chrome, not a second content block: py runs 0.5/1.5/2/2.5
       // against a body py of 2/3.5/4/5, while px stays level with the body so
@@ -109,7 +109,7 @@ function FramePanel({
         /* `fit` sizes the panel to its content; otherwise it grows to fill
            the frame. */
         !fit && "grow",
-        "before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--frame-panel-radius)-1px)] before:shadow-black/5",
+        "before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--frame-panel-radius)_-_1px)] before:shadow-black/5",
         "dark:bg-clip-border dark:before:shadow-white/5",
         "px-(--frame-panel-px) py-(--frame-panel-py)",
         className

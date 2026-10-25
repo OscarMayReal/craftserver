@@ -1,6 +1,6 @@
 "use client"
 import { SidebarProvider, Sidebar, SidebarContent, SidebarInset, SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarMenuButton } from "@workspace/ui/components/sidebar"
-import { FolderIcon, HomeIcon, SettingsIcon } from "lucide-react";
+import { FolderIcon, HomeIcon, PcCaseIcon, SettingsIcon } from "lucide-react";
 import Link from "next/link";
 
 export default function DashboardLayout({
@@ -9,10 +9,10 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return <SidebarProvider>
-    <Sidebar>
+    <Sidebar collapsible="icon">
         <SidebarContent>
             <SidebarGroup>
-                <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+                <SidebarGroupLabel>Server</SidebarGroupLabel>
                 <SidebarGroupContent>
                     <Link href="/dashboard">
                         <SidebarMenuButton>
@@ -30,6 +30,14 @@ export default function DashboardLayout({
                         </SidebarMenuButton>
                     </Link>
                 </SidebarGroupContent>
+            </SidebarGroup>
+            <SidebarGroup>
+                <SidebarGroupLabel>Host</SidebarGroupLabel>
+                <Link href="/dashboard/host">
+                    <SidebarMenuButton>
+                        <PcCaseIcon /> Info
+                    </SidebarMenuButton>
+                </Link>
             </SidebarGroup>
         </SidebarContent>
     </Sidebar>

@@ -9,6 +9,7 @@ import { ButtonGroup } from "@workspace/ui/components/button-group"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@workspace/ui/components/dialog"
 import { Input } from "@workspace/ui/components/input";
 import { toast } from "@workspace/ui/components/toast";
+import { SidebarTrigger } from "@workspace/ui/components/sidebar";
 
 export default function fileManagerPage() {
     const [path, setPath] = useState("")
@@ -75,7 +76,10 @@ export default function fileManagerPage() {
     }
 
     return <div className="p-6">
-        <h1 className="text-2xl font-medium">File Manager</h1>
+        <div className="flex flex-row items-center">
+            <SidebarTrigger className="mr-2" />
+            <h1 className="text-2xl font-medium">File Manager</h1>
+        </div>
         <div className="flex flex-row items-center gap-2 mt-4">
             {path !== "" && <Button variant="ghost" size="icon" onClick={() => {
                 const parts = path.split("/")

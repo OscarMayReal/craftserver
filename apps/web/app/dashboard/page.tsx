@@ -3,10 +3,13 @@ import { trpc } from "@/lib/trpc";
 import { Alert, AlertDescription, AlertTitle } from "@workspace/ui/components/alert";
 import { Button } from "@workspace/ui/components/button";
 import { ButtonGroup } from "@workspace/ui/components/button-group";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@workspace/ui/components/dialog";
+import { Input } from "@workspace/ui/components/input";
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@workspace/ui/components/item";
+import { SidebarTrigger } from "@workspace/ui/components/sidebar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@workspace/ui/components/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@workspace/ui/components/tooltip";
-import { ClockIcon, MemoryStickIcon, PlayIcon, RefreshCwIcon, ServerIcon, StopCircleIcon, UserIcon } from "lucide-react";
+import { ClockIcon, HammerIcon, MemoryStickIcon, PlayIcon, RefreshCwIcon, ServerIcon, StopCircleIcon, UserIcon, XIcon } from "lucide-react";
 import { useState } from "react";
 
 type MinecraftVersion = {
@@ -61,6 +64,7 @@ export default function DashboardPage() {
     }
     return <div className="p-6">
         <div className="flex flex-row items-center">
+            <SidebarTrigger className="mr-2" />
             <h1 className="text-2xl font-medium">Dashboard</h1>
             <div className="flex flex-1" />
             <ButtonGroup>
@@ -90,7 +94,7 @@ export default function DashboardPage() {
                 </Tooltip>
             </ButtonGroup>
         </div>
-        <div className="mt-6 flex flex-row gap-4">
+        <div className="mt-6 flex flex-col gap-4 md:flex-row">
             <Item variant="outline">
                 <ItemMedia variant="icon">
                     <ServerIcon />
@@ -150,12 +154,13 @@ export default function DashboardPage() {
         </Alert>}
         <div className="mt-6">
             <h1 className="text-xl font-medium">Online Players</h1>
-            {(players.data?.length && players.data.length > 0) ? <Table>
+            {(players.data?.length && players.data.length > 0) ? <div className="mt-4 overflow-hidden rounded-lg border">
+                <Table>
                 <TableHeader>
                     <TableRow>
                         <TableHead className="w-[30px]" />
                         <TableHead>Name</TableHead>
-                        <TableHead className="w-[30px]" />
+                        <TableHead className="w-[75px]" />
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -165,13 +170,50 @@ export default function DashboardPage() {
                                 <UserIcon size={16} />
                             </TableCell>
                             <TableCell>{player}</TableCell>
-                            <TableCell className="w-[30px]">
-                                
+                            <TableCell className="w-[75px]">
+                                <UserKickButton username={player} playerList={players} />
                             </TableCell>
                         </TableRow>
                     ))}
                 </TableBody>
-            </Table> : <div>No players online right now</div>}
+                </Table>
+            </div> : <div className="flex flex-col items-center justify-center h-32 rounded-md border mt-4">
+                <p className="text-muted-foreground">No players online right now</p>
+            </div>}
         </div>
     </div>
+}
+
+function UserKickButton({username, playerList}: {username: string, playerList: ReturnType<typeof trpc.status.online.useQuery>}) {
+    const [isOpen, setIsOpen] = useState(false)
+    const [reason, setReason] = useState("")
+    const kickMutation = trpc.config.kickPlayer.useMutation()
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger render={<Button size="sm">
+                <HammerIcon /> Kick
+            </Button>} />
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Kick User</DialogTitle>
+                    <DialogDescription>
+                        Are you sure you want to Kick {username}?
+                    </DialogDescription>
+                </DialogHeader>
+                <Input placeholder="Kick reason" value={reason} onChange={(e) => setReason(e.target.value)} />
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => {
+                        setIsOpen(false)
+                    }}> <XIcon />Cancel</Button>
+                    <Button onClick={async () => {
+                        await kickMutation.mutateAsync({username, reason})
+                        setIsOpen(false)
+                        setReason("")
+                        await new Promise(resolve => setTimeout(resolve, 500))
+                        playerList.refetch()
+                    }}> <HammerIcon />Kick User</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
 }

@@ -64,6 +64,7 @@
         "@trpc/server": "^11.19.0",
         "express": "^5.1.0",
         "minecraft-wrap": "^1.10.0",
+        "systeminformation": "^5.33.16",
         "zod": "^4.6.6",
       },
       "devDependencies": {

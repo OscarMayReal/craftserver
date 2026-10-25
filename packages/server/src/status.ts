@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import { createConnection } from 'node:net';
 import { publicProcedure, router } from './trpc.js';
 import { getServerUptimeMs } from './server.js';
+import os from 'os';
+import sysinfo from "systeminformation"
 
 function writeVarInt(value: number): number[] {
   const bytes: number[] = [];
@@ -116,6 +118,24 @@ const statusRouter = router({
       },
       serverRunning: onlinePlayers !== null,
     };
+  }),
+  host: router({
+    get: publicProcedure.query(() => {
+      return {
+        hostname: os.hostname(),
+        platform: os.platform(),
+        arch: os.arch(),
+        cpus: os.cpus().length,
+        totalMemory: os.totalmem(),
+        uptime: os.uptime(),
+      };
+    }),
+    thermals: publicProcedure.query(async () => {
+      const cpuTemperature = await sysinfo.cpuTemperature();
+      return {
+        cpu: cpuTemperature,
+      };
+    }),
   }),
 });
 

@@ -84,9 +84,9 @@ const serverConfigRouter = router({
   kickPlayer: publicProcedure.input(z.object({
     username: z.string().regex(/^[A-Za-z0-9_]{1,16}$/),
     reason: z.string().max(200).optional(),
-  })).mutation(({ input }) => {
+  })).mutation(async ({ input }) => {
     const reason = input.reason?.replace(/[\r\n]+/g, ' ').trim();
-    server.runCommand(`/kick ${input.username}${reason ? ` ${reason}` : ''}`);
+    await server.runCommand(`kick ${input.username}${reason ? ` ${reason}` : ''}`);
     return true;
   }),
   initializeServer: publicProcedure.mutation(async () => {

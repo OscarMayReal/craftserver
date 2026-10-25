@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import { execFile, spawn, type ChildProcess } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
+import { createConnection } from "node:net";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -38,6 +40,74 @@ type ServerCallback = (error: Error | null) => void;
 let mcServer: ChildProcess | null = null;
 const execFileAsync = promisify(execFile);
 const pidPath = path.resolve(serverPath, 'mcserver.pid');
+const rconPasswordPath = path.resolve(serverPath, 'rcon-password');
+
+function readServerProperty(name: string): string | null {
+    try {
+        const line = fs.readFileSync(path.join(serverPath, 'server.properties'), 'utf8')
+            .split(/\r?\n/).find((entry) => entry.startsWith(`${name}=`));
+        return line ? line.slice(name.length + 1) : null;
+    } catch {
+        return null;
+    }
+}
+
+function rconCommand(command: string): Promise<void> {
+    const port = Number(readServerProperty('rcon.port'));
+    const password = readServerProperty('rcon.password');
+    if (!Number.isInteger(port) || port < 1 || port > 65535 || !password) {
+        return Promise.reject(new Error('RCON is not configured. Restart the Minecraft server to enable remote commands.'));
+    }
+
+    return new Promise((resolve, reject) => {
+        const socket = createConnection({ host: '127.0.0.1', port });
+        const authId = (randomBytes(4).readUInt32LE(0) % 0x7ffffffe) + 1;
+        const commandId = authId + 1;
+        let buffer = Buffer.alloc(0);
+        let authenticated = false;
+        let settled = false;
+
+        const finish = (error?: Error) => {
+            if (settled) return;
+            settled = true;
+            socket.destroy();
+            if (error) reject(error);
+            else resolve();
+        };
+        const sendPacket = (id: number, type: number, body: string) => {
+            const payload = Buffer.from(body, 'utf8');
+            const packet = Buffer.alloc(14 + payload.length);
+            packet.writeInt32LE(10 + payload.length, 0);
+            packet.writeInt32LE(id, 4);
+            packet.writeInt32LE(type, 8);
+            payload.copy(packet, 12);
+            packet[12 + payload.length] = 0;
+            packet[13 + payload.length] = 0;
+            socket.write(packet);
+        };
+
+        socket.setTimeout(3_000, () => finish(new Error('Timed out communicating with the Minecraft server')));
+        socket.on('error', (error) => finish(new Error(`Could not connect to Minecraft RCON: ${error.message}`)));
+        socket.on('connect', () => sendPacket(authId, 3, password));
+        socket.on('data', (chunk) => {
+            buffer = Buffer.concat([buffer, chunk]);
+            while (buffer.length >= 4) {
+                const size = buffer.readInt32LE(0);
+                if (size < 10 || buffer.length < size + 4) return;
+                const packet = buffer.subarray(4, size + 4);
+                buffer = buffer.subarray(size + 4);
+                const id = packet.readInt32LE(0);
+                if (!authenticated) {
+                    if (id === -1 || id !== authId) return finish(new Error('Minecraft RCON authentication failed'));
+                    authenticated = true;
+                    sendPacket(commandId, 2, command);
+                } else if (id === commandId) {
+                    finish();
+                }
+            }
+        });
+    });
+}
 
 async function findMinecraftPid(port?: number): Promise<number | null> {
     try {
@@ -64,12 +134,7 @@ function isProcessAlive(pid: number): boolean {
 // them as the jar filename. Keep its downloader, but launch the server with
 // JVM options in the correct position.
 export const server = {
-    runCommand(command: string) {
-        if (!mcServer || !mcServer.stdin || mcServer.stdin.destroyed) {
-            throw new Error('Minecraft server process is not available for commands');
-        }
-        mcServer.stdin.write(`${command}\n`);
-    },
+    runCommand: rconCommand,
     startServer(properties: Record<string, string | number | boolean>, done: ServerCallback) {
         if (mcServer) return done(new Error("Minecraft server is already running"));
 
@@ -87,9 +152,20 @@ export const server = {
             'view-distance': '10', 'spawn-protection': '16', motd: 'A Minecraft Server',
             'use-native-transport': 'false',
         };
-        const merged = { ...defaults, ...properties };
-        const port = Number(merged['server-port'] ?? 25565);
-        void findMinecraftPid(port).then((existingPid) => {
+        fs.mkdirSync(serverPath, { recursive: true });
+        if (!fs.existsSync(rconPasswordPath)) {
+            fs.writeFileSync(rconPasswordPath, randomBytes(32).toString('hex'), { mode: 0o600 });
+        }
+        const rconPassword = fs.readFileSync(rconPasswordPath, 'utf8').trim();
+        const serverPort = Number(properties['server-port'] ?? defaults['server-port']);
+        const merged = {
+            ...defaults,
+            ...properties,
+            'enable-rcon': 'true',
+            'rcon.port': serverPort + 10,
+            'rcon.password': rconPassword,
+        };
+        void findMinecraftPid(serverPort).then((existingPid) => {
             if (existingPid && isProcessAlive(existingPid)) {
                 fs.writeFileSync(pidPath, String(existingPid));
                 return done(null);
