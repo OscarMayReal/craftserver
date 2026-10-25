@@ -9,8 +9,8 @@ import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@works
 import { SidebarTrigger } from "@workspace/ui/components/sidebar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@workspace/ui/components/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@workspace/ui/components/tooltip";
-import { ClockIcon, HammerIcon, MemoryStickIcon, PlayIcon, RefreshCwIcon, ServerIcon, ShieldCheckIcon, StopCircleIcon, UserIcon, XIcon } from "lucide-react";
-import { useState } from "react";
+import { ClockIcon, HammerIcon, MemoryStickIcon, PlayIcon, RefreshCwIcon, SendIcon, ServerIcon, ShieldCheckIcon, StopCircleIcon, UserIcon, XIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 type MinecraftVersion = {
     id: string;
@@ -47,6 +47,13 @@ export default function DashboardPage() {
     const config = trpc.config.get.useQuery();
     const status = trpc.status.get.useQuery(undefined, { refetchInterval: 5_000 });
     const players = trpc.status.online.useQuery(undefined, { refetchInterval: 5_000 });
+    const logs = trpc.status.logs.useQuery(undefined, { refetchInterval: 2_000 });
+    const [command, setCommand] = useState("");
+    const logContainer = useRef<HTMLDivElement>(null);
+    const runCommand = trpc.config.runCommand.useMutation({ onSuccess: () => void logs.refetch() });
+    useEffect(() => {
+        if (logContainer.current) logContainer.current.scrollTop = logContainer.current.scrollHeight;
+    }, [logs.data]);
     const refreshStatus = () => {
         void status.refetch();
         void players.refetch();
@@ -184,6 +191,31 @@ export default function DashboardPage() {
                 <p className="text-muted-foreground">No players online right now</p>
             </div>}
         </div>
+        <section className="mt-6">
+            <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-xl font-medium">Server Console</h2>
+                <Button variant="outline" size="sm" onClick={() => void logs.refetch()} disabled={logs.isFetching}>
+                    <RefreshCwIcon className={logs.isFetching ? "animate-spin" : ""} /> Refresh
+                </Button>
+            </div>
+            <div ref={logContainer} aria-live="polite" className="h-80 overflow-auto rounded-md border bg-neutral-950 p-4 font-mono text-xs text-neutral-100">
+                {logs.isPending ? <p className="text-neutral-400">Loading server log…</p> : logs.data?.length
+                    ? logs.data.map((line, index) => <div key={`${index}-${line}`} className="whitespace-pre-wrap break-all">{line}</div>)
+                    : <p className="text-neutral-400">No server log available. Start the server to see console output.</p>}
+            </div>
+            <form className="mt-3 flex gap-2" onSubmit={(event) => {
+                event.preventDefault();
+                const value = command.trim();
+                if (!value) return;
+                runCommand.mutate({ command: value }, { onSuccess: () => setCommand("") });
+            }}>
+                <Input aria-label="Server command" placeholder="Enter a server command, e.g. say Hello" value={command} onChange={(event) => setCommand(event.target.value)} disabled={!status.data?.serverRunning || runCommand.isPending} />
+                <Button type="submit" disabled={!status.data?.serverRunning || !command.trim() || runCommand.isPending}>
+                    <SendIcon /> Send
+                </Button>
+            </form>
+            {runCommand.error && <p role="alert" className="mt-2 text-sm text-destructive">{runCommand.error.message}</p>}
+        </section>
     </div>
 }
 

@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
         destination: `${process.env.TRPC_SERVER_URL ?? "http://localhost:3001/trpc"}/:path*`,
       },
       {
+        source: "/api/files/archive",
+        destination: `${(process.env.TRPC_SERVER_URL ?? "http://localhost:3001/trpc").replace(/\/trpc\/?$/, "")}/files/archive`,
+      },
+      {
         source: "/api/version_manifest.json",
         destination: "https://launchermeta.mojang.com/mc/game/version_manifest.json",
       }

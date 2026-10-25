@@ -235,6 +235,12 @@ function SetupPageBasicInfo({ currentStep, setCurrentStep }: StepState) {
 function SetupPageSecurity({ currentStep, setCurrentStep }: StepState) {
   const [newPlayer, setNewPlayer] = useState<string>("")
   const { accessMode, setAccessMode, allowedPlayers, setAllowedPlayers } = useSetupSettings()
+  const addPlayer = () => {
+    const player = newPlayer.trim()
+    if (!/^[A-Za-z0-9_]{1,16}$/.test(player) || allowedPlayers.some((name) => name.toLowerCase() === player.toLowerCase())) return
+    setAllowedPlayers([...allowedPlayers, player])
+    setNewPlayer("")
+  }
   return (
     <div className="flex flex-col w-full h-full max-w-2xl mx-auto gap-4">
       <Frame stacked>
@@ -274,11 +280,9 @@ function SetupPageSecurity({ currentStep, setCurrentStep }: StepState) {
               <FieldDescription>Enter player username</FieldDescription>
               <FieldContent>
                 <Input placeholder="Enter player username" value={newPlayer} onChange={(e) => setNewPlayer(e.target.value)} onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    setAllowedPlayers([...allowedPlayers, newPlayer])
-                    setNewPlayer("")
-                  }
+                  if (e.key === "Enter") { e.preventDefault(); addPlayer() }
                 }} />
+                <Button type="button" onClick={addPlayer} disabled={!/^[A-Za-z0-9_]{1,16}$/.test(newPlayer.trim())}>Add player</Button>
               </FieldContent>
             </Field>
           </FramePanel>
@@ -384,7 +388,7 @@ function SetupPageMods({ currentStep, setCurrentStep }: StepState) {
 }
 
 export function SetupPageReview(_stepState: StepState) {
-    const { serverType, minecraftVersion, serverName, serverMOTD, serverPort, gameMode, difficulty, worldSeed, accessMode } = useSetupSettings()
+    const { serverType, minecraftVersion, serverName, serverMOTD, serverPort, gameMode, difficulty, worldSeed, accessMode, allowedPlayers, selectedMods } = useSetupSettings()
     const saveConfig = trpc.config.set.useMutation();
     const initializeServer = trpc.config.initializeServer.useMutation();
     const router = useRouter();
@@ -444,6 +448,12 @@ export function SetupPageReview(_stepState: StepState) {
             <FieldDescription className="ml-auto text-end">{accessMode}</FieldDescription>
           </Field>  
         </FramePanel>
+        {accessMode === "private" && <FramePanel>
+          <Field className="flex flex-row gap-2">
+            <FieldLabel>Whitelisted Players:</FieldLabel>
+            <FieldDescription className="ml-auto text-end">{allowedPlayers.length ? allowedPlayers.join(", ") : "No players added"}</FieldDescription>
+          </Field>
+        </FramePanel>}
       </Frame>
       <Frame>
         <FrameHeader className="flex flex-row items-center gap-3">
@@ -463,8 +473,8 @@ export function SetupPageReview(_stepState: StepState) {
                     gameMode,
                     difficulty,
                     accessMode,
-                    allowedPlayers: [],
-                    selectedMods: []
+                    allowedPlayers,
+                    selectedMods
                 }, {
                     onSuccess: () => initializeServer.mutate(undefined, {
                         onSuccess: () => router.push('/dashboard')

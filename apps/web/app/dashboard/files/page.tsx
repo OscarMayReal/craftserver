@@ -75,6 +75,27 @@ export default function fileManagerPage() {
         }
     }
 
+    async function downloadFolder(name: string) {
+        const folderPath = [path, name].filter(Boolean).join("/")
+        try {
+            const response = await fetch(`/api/files/archive?path=${encodeURIComponent(folderPath)}`)
+            if (!response.ok) throw new Error(await response.text() || "Could not download folder")
+            const url = URL.createObjectURL(await response.blob())
+            const anchor = document.createElement("a")
+            anchor.href = url
+            anchor.download = `${name}.zip`
+            document.body.appendChild(anchor)
+            anchor.click()
+            anchor.remove()
+            window.setTimeout(() => URL.revokeObjectURL(url), 1_000)
+        } catch (error) {
+            toast.add({
+                title: "Download Failed",
+                description: error instanceof Error ? error.message : "Could not download folder",
+            })
+        }
+    }
+
     return <div className="p-6">
         <div className="flex flex-row items-center">
             <SidebarTrigger className="mr-2" />
@@ -124,7 +145,9 @@ export default function fileManagerPage() {
                             <DropdownMenu>
                                 <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm"><MoreHorizontalIcon /></Button>} />
                                 <DropdownMenuContent>
-                                    {!file.isDirectory && <DropdownMenuItem onClick={() => void downloadFile(file.name)}><DownloadIcon /> Download</DropdownMenuItem>}
+                                    {file.isDirectory
+                                        ? <DropdownMenuItem onClick={() => void downloadFolder(file.name)}><DownloadIcon /> Download as ZIP</DropdownMenuItem>
+                                        : <DropdownMenuItem onClick={() => void downloadFile(file.name)}><DownloadIcon /> Download</DropdownMenuItem>}
                                     <DropdownMenuItem variant="destructive" onClick={() => {
                                         const filePath = [path, file.name].filter(Boolean).join("/")
                                         setPendingDelete({ path: filePath, isDirectory: file.isDirectory })

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import { z } from 'zod';
 import { publicProcedure, router } from './trpc.js';
-import { downloadServer, getServerUptimeMs, jarPath, markServerStarted, markServerStopped, server } from './server.js';
+import { downloadServer, downloadSelectedMods, getServerUptimeMs, installFabricServer, jarPath, markServerStarted, markServerStopped, server, serverPath } from './server.js';
 
 export type Config = {
   serverName: string;
@@ -29,7 +29,7 @@ const serverConfigSchema = z.object({
   difficulty: z.string(),
   offlineMode: z.boolean().default(false),
   accessMode: z.enum(['public', 'private']),
-  allowedPlayers: z.array(z.string()),
+  allowedPlayers: z.array(z.string().regex(/^[A-Za-z0-9_]{1,16}$/)).default([]),
   selectedMods: z.array(z.string()),
 });
 
@@ -52,23 +52,61 @@ function serverProperties(config: Config) {
   };
 }
 
-function startConfiguredServer(config: Config): Promise<void> {
+const managedWhitelistPath = './data/managed-whitelist.json';
+
+function readManagedWhitelist(): string[] {
+  try {
+    const entries: unknown = JSON.parse(fs.readFileSync(managedWhitelistPath, 'utf-8'));
+    return Array.isArray(entries) ? entries.filter((entry): entry is string => typeof entry === 'string' && /^[A-Za-z0-9_]{1,16}$/.test(entry)) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function prepareConfiguredServer(config: Config): Promise<boolean> {
+  const isFabric = config.serverType.toLowerCase() === 'fabric';
+  if (isFabric) {
+    await installFabricServer(config.minecraftVersion);
+    await downloadSelectedMods(config.minecraftVersion, config.selectedMods);
+  } else {
+    await downloadServer(config.minecraftVersion);
+  }
+  return isFabric;
+}
+
+async function startConfiguredServer(config: Config): Promise<void> {
+  const isFabric = await prepareConfiguredServer(config);
   return new Promise((resolve, reject) => {
     server.startServer(serverProperties(config), (error) => {
       if (error) reject(error);
       else {
         markServerStarted();
-        resolve();
+        void (async () => {
+          const previouslyManaged = readManagedWhitelist();
+          for (const username of previouslyManaged) await server.runCommand(`whitelist remove ${username}`);
+          await server.runCommand(config.accessMode === 'private' ? 'whitelist on' : 'whitelist off');
+          const managed = config.accessMode === 'private' ? [...new Set(config.allowedPlayers)] : [];
+          if (config.accessMode === 'private') {
+            for (const username of managed) await server.runCommand(`whitelist add ${username}`);
+          }
+          fs.mkdirSync('./data', { recursive: true });
+          fs.writeFileSync(managedWhitelistPath, JSON.stringify(managed, null, 2));
+          resolve();
+        })().catch(reject);
       }
-    });
+    }, isFabric);
   });
 }
 
 export async function startInstalledServer(): Promise<boolean> {
   const configPath = './data/serverconfig.json';
-  if (!fs.existsSync(configPath) || !fs.existsSync(jarPath)) return false;
+  if (!fs.existsSync(configPath)) return false;
+  const config = readServerConfig();
+  if (config.serverType.toLowerCase() === 'fabric'
+    ? !fs.existsSync(`${serverPath}/fabric-server-launch.jar`)
+    : !fs.existsSync(jarPath)) return false;
 
-  await startConfiguredServer(readServerConfig());
+  await startConfiguredServer(config);
   return true;
 }
 
@@ -92,6 +130,12 @@ const serverConfigRouter = router({
     await server.runCommand(`kick ${input.username}${reason ? ` ${reason}` : ''}`);
     return true;
   }),
+  runCommand: publicProcedure.input(z.object({
+    command: z.string().trim().min(1).max(256).refine((command) => !/[\r\n\0]/.test(command), 'Enter one command at a time'),
+  })).mutation(async ({ input }) => {
+    await server.runCommand(input.command);
+    return true;
+  }),
   opPlayer: publicProcedure.input(z.object({
     username: z.string().regex(/^[A-Za-z0-9_]{1,16}$/),
   })).mutation(async ({ input }) => {
@@ -100,7 +144,6 @@ const serverConfigRouter = router({
   }),
   initializeServer: publicProcedure.mutation(async () => {
     const config = readServerConfig();
-    await downloadServer(config.minecraftVersion);
     await startConfiguredServer(config);
     return true;
   }),

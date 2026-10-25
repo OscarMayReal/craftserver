@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import { createConnection } from 'node:net';
 import { publicProcedure, router } from './trpc.js';
-import { getServerUptimeMs } from './server.js';
+import { getServerLogs, getServerUptimeMs } from './server.js';
 import os from 'os';
 import sysinfo from "systeminformation"
 
@@ -103,6 +103,7 @@ function getOnlinePlayers(): Promise<string[] | null> {
 }
 
 const statusRouter = router({
+  logs: publicProcedure.query(() => getServerLogs()),
   online: publicProcedure.query(() => getOnlinePlayers()),
   get: publicProcedure.query(async () => {
     const memory = process.memoryUsage();

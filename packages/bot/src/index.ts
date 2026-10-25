@@ -2,6 +2,7 @@ import mineflayer, { type Bot } from 'mineflayer';
 import { pathfinder } from 'mineflayer-pathfinder';
 import { Movements } from 'mineflayer-pathfinder';
 import { goals } from 'mineflayer-pathfinder';
+import { handleSimpleScriptCommand } from './simplescript.js';
 
 const activeBots = new Map<string, Bot>();
 
@@ -53,9 +54,10 @@ export function createBot({
   });
 
   bot.on('chat', (username, message) => {
-    if (username !== bot.username.split('_bot')[0]) return;
+    if (username.toLowerCase() !== PlayerName.toLowerCase()) return;
     if (message.startsWith(':')) {
       const [command, ...args] = message.split(' --');
+      if (handleSimpleScriptCommand(bot, username, command ?? '', args, message)) return;
       switch (command) {
         case ':navigateTo': {
             const target = bot.players[username]?.entity;

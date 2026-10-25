@@ -28,6 +28,8 @@ const { download } = require("minecraft-wrap");
 
 export const jarPath = path.resolve("./data/mcserver.jar");
 export const serverPath = path.resolve("./data/mcserver");
+const fabricJarPath = path.join(serverPath, "fabric-server-launch.jar");
+const modsPath = path.join(serverPath, "mods");
 
 const downloadPromise = (version: string, name: string) => new Promise<void>((resolve, reject) => {
     download(version, name, (error: Error | null) => {
@@ -38,6 +40,88 @@ const downloadPromise = (version: string, name: string) => new Promise<void>((re
 
 export function downloadServer(version: string): Promise<void> {
     return downloadPromise(version, jarPath);
+}
+
+const recommendedMods: Record<string, string> = {
+    "WorldEdit": "worldedit",
+    "Effortless Building": "effortless-building",
+    "Lithium": "lithium",
+    "ServerPress": "serverpress",
+    "JourneyMap": "journeymap",
+};
+
+async function fetchJson<T>(url: string): Promise<T> {
+    const response = await fetch(url, { headers: { "User-Agent": "CraftServer/1.0 (server setup)" } });
+    if (!response.ok) throw new Error(`Download request failed (${response.status}): ${url}`);
+    return response.json() as Promise<T>;
+}
+
+export async function installFabricServer(version: string): Promise<void> {
+    type Installer = { url: string };
+    const installers = await fetchJson<Installer[]>("https://meta.fabricmc.net/v2/versions/installer");
+    const installer = installers[0];
+    if (!installer?.url) throw new Error("Could not find a Fabric installer");
+    fs.mkdirSync(serverPath, { recursive: true });
+    const installerPath = path.resolve("./data/fabric-installer.jar");
+    const response = await fetch(installer.url);
+    if (!response.ok) throw new Error(`Could not download Fabric installer (${response.status})`);
+    fs.writeFileSync(installerPath, Buffer.from(await response.arrayBuffer()));
+    try {
+        await execFileAsync("java", ["-jar", installerPath, "server", "-mcversion", version, "-dir", serverPath, "-downloadMinecraft"], { timeout: 180_000 });
+    } catch (error) {
+        throw new Error(`Fabric installation failed: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+        fs.rmSync(installerPath, { force: true });
+    }
+    if (!fs.existsSync(fabricJarPath)) throw new Error("Fabric installer finished without creating fabric-server-launch.jar");
+}
+
+export async function downloadSelectedMods(version: string, selectedMods: string[]): Promise<void> {
+    fs.mkdirSync(modsPath, { recursive: true });
+    const manifestPath = path.join(modsPath, ".craftserver-managed.json");
+    let previouslyManaged: string[] = [];
+    try { previouslyManaged = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as string[]; } catch { /* first install */ }
+    const installed: string[] = [];
+    const handledVersions = new Set<string>();
+    type ModVersion = {
+        id: string;
+        game_versions: string[];
+        loaders: string[];
+        dependencies: { version_id: string | null; dependency_type: string }[];
+        files: { url: string; filename: string; primary: boolean }[];
+    };
+    const installVersion = async (entry: ModVersion) => {
+        if (handledVersions.has(entry.id)) return;
+        handledVersions.add(entry.id);
+        if (!entry.game_versions.includes(version) || !entry.loaders.includes("fabric")) {
+            throw new Error(`A required dependency is incompatible with Minecraft ${version}`);
+        }
+        const file = entry.files.find((candidate) => candidate.primary) ?? entry.files[0];
+        if (!file) throw new Error(`A required mod version has no downloadable file`);
+        const response = await fetch(file.url);
+        if (!response.ok) throw new Error(`Could not download ${file.filename} (${response.status})`);
+        const filename = path.basename(file.filename);
+        fs.writeFileSync(path.join(modsPath, filename), Buffer.from(await response.arrayBuffer()));
+        installed.push(filename);
+        for (const dependency of entry.dependencies) {
+            if (dependency.dependency_type !== "required") continue;
+            if (!dependency.version_id) throw new Error(`A required dependency for ${filename} has no compatible version`);
+            const required = await fetchJson<ModVersion>(`https://api.modrinth.com/v2/version/${dependency.version_id}`);
+            await installVersion(required);
+        }
+    };
+    for (const title of [...new Set(selectedMods)]) {
+        const slug = recommendedMods[title];
+        if (!slug) throw new Error(`Unknown recommended mod: ${title}`);
+        type Project = { id: string; title: string };
+        const project = await fetchJson<Project>(`https://api.modrinth.com/v2/project/${encodeURIComponent(slug)}`);
+        const versions = await fetchJson<ModVersion[]>(`https://api.modrinth.com/v2/project/${project.id}/version?game_versions=%5B%22${encodeURIComponent(version)}%22%5D&loaders=%5B%22fabric%22%5D`);
+        const selected = versions.find((entry) => entry.game_versions.includes(version) && entry.loaders.includes("fabric"));
+        if (!selected) throw new Error(`No Fabric build of ${title} is available for Minecraft ${version}`);
+        await installVersion(selected);
+    }
+    for (const filename of previouslyManaged) if (!installed.includes(filename)) fs.rmSync(path.join(modsPath, filename), { force: true });
+    fs.writeFileSync(manifestPath, JSON.stringify(installed, null, 2));
 }
 
 type ServerCallback = (error: Error | null) => void;
@@ -97,6 +181,24 @@ export function watchServerChatLog(): void {
     poll();
     const timer = setInterval(poll, 250);
     timer.unref();
+}
+
+export function getServerLogs(limit = 200): string[] {
+    let fileDescriptor: number | undefined;
+    try {
+        const logPath = path.join(serverPath, 'logs', 'latest.log');
+        const stats = fs.statSync(logPath);
+        const bytesToRead = Math.min(stats.size, 128 * 1024);
+        fileDescriptor = fs.openSync(logPath, 'r');
+        const buffer = Buffer.allocUnsafe(bytesToRead);
+        const bytesRead = fs.readSync(fileDescriptor, buffer, 0, bytesToRead, stats.size - bytesToRead);
+        const contents = buffer.subarray(0, bytesRead).toString('utf8');
+        return contents.split(/\r?\n/).filter(Boolean).slice(-limit);
+    } catch {
+        return [];
+    } finally {
+        if (fileDescriptor !== undefined) fs.closeSync(fileDescriptor);
+    }
 }
 
 function readServerProperty(name: string): string | null {
@@ -196,7 +298,7 @@ export const server = {
         chatListeners.add(listener);
         return () => chatListeners.delete(listener);
     },
-    startServer(properties: Record<string, string | number | boolean>, done: ServerCallback) {
+    startServer(properties: Record<string, string | number | boolean>, done: ServerCallback, fabric = false) {
         if (mcServer) return done(new Error("Minecraft server is already running"));
 
         fs.mkdirSync(serverPath, { recursive: true });
@@ -231,7 +333,7 @@ export const server = {
                 fs.writeFileSync(pidPath, String(existingPid));
                 return done(null);
             }
-            launchServer(merged, done);
+            launchServer(merged, done, fabric);
         }).catch(done);
     },
     stopServer(done: ServerCallback) {
@@ -291,14 +393,16 @@ export const server = {
     },
 };
 
-function launchServer(merged: Record<string, string | number | boolean>, done: ServerCallback) {
+function launchServer(merged: Record<string, string | number | boolean>, done: ServerCallback, fabric = false) {
         fs.writeFileSync(path.join(serverPath, 'server.properties'), Object.entries(merged).map(([key, value]) => `${key}=${value}\n`).join(''));
         fs.writeFileSync(path.join(serverPath, 'eula.txt'), 'eula=true');
         for (const filename of ['banned-players.json', 'banned-ips.json', 'ops.json', 'whitelist.json']) {
             if (!fs.existsSync(path.join(serverPath, filename))) fs.writeFileSync(path.join(serverPath, filename), '[]');
         }
 
-        const child = spawn('java', ['-Xms1024M', '-Xmx1024M', '-jar', jarPath, 'nogui'], {
+        const launchJar = fabric ? fabricJarPath : jarPath;
+        if (!fs.existsSync(launchJar)) return done(new Error(`${fabric ? "Fabric" : "Vanilla"} server files are missing. Run server setup again.`));
+        const child = spawn('java', ['-Xms1024M', '-Xmx1024M', '-jar', launchJar, 'nogui'], {
             cwd: serverPath, stdio: 'pipe',
         });
         mcServer = child;
