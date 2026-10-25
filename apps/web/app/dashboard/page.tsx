@@ -9,7 +9,7 @@ import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@works
 import { SidebarTrigger } from "@workspace/ui/components/sidebar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@workspace/ui/components/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@workspace/ui/components/tooltip";
-import { ClockIcon, HammerIcon, MemoryStickIcon, PlayIcon, RefreshCwIcon, ServerIcon, StopCircleIcon, UserIcon, XIcon } from "lucide-react";
+import { ClockIcon, HammerIcon, MemoryStickIcon, PlayIcon, RefreshCwIcon, ServerIcon, ShieldCheckIcon, StopCircleIcon, UserIcon, XIcon } from "lucide-react";
 import { useState } from "react";
 
 type MinecraftVersion = {
@@ -160,7 +160,7 @@ export default function DashboardPage() {
                     <TableRow>
                         <TableHead className="w-[30px]" />
                         <TableHead>Name</TableHead>
-                        <TableHead className="w-[75px]" />
+                        <TableHead className="w-[190px]" />
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -170,8 +170,11 @@ export default function DashboardPage() {
                                 <UserIcon size={16} />
                             </TableCell>
                             <TableCell>{player}</TableCell>
-                            <TableCell className="w-[75px]">
-                                <UserKickButton username={player} playerList={players} />
+                            <TableCell className="w-[190px]">
+                                <div className="flex items-center gap-2">
+                                    <UserOpButton username={player} />
+                                    <UserKickButton username={player} playerList={players} />
+                                </div>
                             </TableCell>
                         </TableRow>
                     ))}
@@ -182,6 +185,35 @@ export default function DashboardPage() {
             </div>}
         </div>
     </div>
+}
+
+function UserOpButton({ username }: { username: string }) {
+    const [isOpen, setIsOpen] = useState(false)
+    const opMutation = trpc.config.opPlayer.useMutation()
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger render={<Button size="sm" variant="outline">
+                <ShieldCheckIcon /> Make OP
+            </Button>} />
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Grant operator access</DialogTitle>
+                    <DialogDescription>
+                        Make {username} a server operator? Operators have full control over the server.
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsOpen(false)}><XIcon />Cancel</Button>
+                    <Button onClick={async () => {
+                        await opMutation.mutateAsync({ username })
+                        setIsOpen(false)
+                    }} disabled={opMutation.isPending}>
+                        <ShieldCheckIcon /> Grant OP
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
 }
 
 function UserKickButton({username, playerList}: {username: string, playerList: ReturnType<typeof trpc.status.online.useQuery>}) {

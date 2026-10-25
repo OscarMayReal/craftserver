@@ -10,8 +10,12 @@ import { promisify } from "node:util";
 // setEncoding() method. minecraft-wrap calls it unconditionally, although it
 // only writes strings to stdin, so provide the no-op compatibility method
 // before loading the package.
-if (typeof Bun !== "undefined" && typeof fs.WriteStream.prototype.setEncoding !== "function") {
-    Object.defineProperty(fs.WriteStream.prototype, "setEncoding", {
+const bunRuntime = (globalThis as typeof globalThis & { Bun?: unknown }).Bun;
+const writeStreamPrototype = fs.WriteStream.prototype as typeof fs.WriteStream.prototype & {
+    setEncoding?: (encoding: string) => unknown;
+};
+if (bunRuntime && typeof writeStreamPrototype.setEncoding !== "function") {
+    Object.defineProperty(writeStreamPrototype, "setEncoding", {
         configurable: true,
         value() {
             return this;
@@ -37,10 +41,63 @@ export function downloadServer(version: string): Promise<void> {
 }
 
 type ServerCallback = (error: Error | null) => void;
+export type ServerChatMessage = { player: string; message: string };
+const chatListeners = new Set<(chat: ServerChatMessage) => void>();
 let mcServer: ChildProcess | null = null;
 const execFileAsync = promisify(execFile);
 const pidPath = path.resolve(serverPath, 'mcserver.pid');
 const rconPasswordPath = path.resolve(serverPath, 'rcon-password');
+
+function publishChatLine(line: string): void {
+    const match = line.match(/\]: (?:\[Not Secure\] )?<([A-Za-z0-9_]{1,16})> (.*)$/);
+    if (!match) return;
+
+    const chat = { player: match[1]!, message: match[2]! };
+    for (const listener of chatListeners) listener(chat);
+}
+
+export function watchServerChatLog(): void {
+    const logPath = path.join(serverPath, 'logs', 'latest.log');
+    let offset = 0;
+    let initialized = false;
+    let pendingLogLine = '';
+
+    const poll = () => {
+        let fileDescriptor: number | undefined;
+        try {
+            const stats = fs.statSync(logPath);
+            if (!initialized) {
+                offset = stats.size;
+                initialized = true;
+                return;
+            }
+            if (stats.size < offset) {
+                offset = 0;
+                pendingLogLine = '';
+            }
+
+            const bytesToRead = Math.min(stats.size - offset, 64 * 1024);
+            if (bytesToRead <= 0) return;
+            fileDescriptor = fs.openSync(logPath, 'r');
+            const chunk = Buffer.allocUnsafe(bytesToRead);
+            const bytesRead = fs.readSync(fileDescriptor, chunk, 0, bytesToRead, offset);
+            offset += bytesRead;
+            pendingLogLine += chunk.subarray(0, bytesRead).toString('utf8');
+
+            const lines = pendingLogLine.split(/\r?\n/);
+            pendingLogLine = lines.pop() ?? '';
+            for (const line of lines) publishChatLine(line);
+        } catch {
+            // The server creates or rotates latest.log while starting.
+        } finally {
+            if (fileDescriptor !== undefined) fs.closeSync(fileDescriptor);
+        }
+    };
+
+    poll();
+    const timer = setInterval(poll, 250);
+    timer.unref();
+}
 
 function readServerProperty(name: string): string | null {
     try {
@@ -135,6 +192,10 @@ function isProcessAlive(pid: number): boolean {
 // JVM options in the correct position.
 export const server = {
     runCommand: rconCommand,
+    onChat(listener: (chat: ServerChatMessage) => void) {
+        chatListeners.add(listener);
+        return () => chatListeners.delete(listener);
+    },
     startServer(properties: Record<string, string | number | boolean>, done: ServerCallback) {
         if (mcServer) return done(new Error("Minecraft server is already running"));
 
@@ -249,12 +310,16 @@ function launchServer(merged: Record<string, string | number | boolean>, done: S
             done(error);
         };
         const onOutput = (chunk: Buffer | string) => {
-            output += chunk.toString();
+            const text = chunk.toString();
+            output += text;
             if (/\[.+\]: Done/.test(output)) finish(null);
             if (/FAILED TO BIND TO PORT/.test(output)) finish(new Error('failed to bind to port'));
             if (output.length > 16_384) output = output.slice(-8_192);
         };
-        child.stdout?.on('data', onOutput);
+        const onStdout = (chunk: Buffer | string) => {
+            onOutput(chunk);
+        };
+        child.stdout?.on('data', onStdout);
         child.stderr?.on('data', onOutput);
         child.on('error', (error) => { mcServer = null; finish(error); });
         child.on('close', (code) => {

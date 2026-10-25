@@ -6,9 +6,10 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectI
 import { useSetupSettings } from "@/components/setup-context";
 import { Input } from "@workspace/ui/components/input";
 import { Button } from "@workspace/ui/components/button";
+import { Switch } from "@workspace/ui/components/switch";
 import { SaveIcon } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "@workspace/ui/components/toast";
 
 export default function ConfigPage() {
@@ -29,11 +30,13 @@ function ConfigPageContent() {
     } = useSetupSettings()
     const restartServer = trpc.config.restartServer.useMutation()
     const config = trpc.config.get.useQuery()
+    const [offlineMode, setOfflineMode] = useState(false)
     useEffect(() => {
       if (config.data) {
         setServerMOTD(config.data.serverMOTD)
         setGameMode(config.data.gameMode)
         setDifficulty(config.data.difficulty)
+        setOfflineMode(config.data.offlineMode)
       }
     }, [config.data])
     const updateConfig = trpc.config.updateConfig.useMutation()
@@ -93,12 +96,23 @@ function ConfigPageContent() {
                         </FieldContent>
                     </Field>
                 </FramePanel>
+                <FramePanel>
+                    <Field>
+                        <FieldTitle>Offline mode</FieldTitle>
+                        <FieldDescription>Allows players to join without Mojang or Microsoft authentication, so player identities can be impersonated. Use this only with people you trust and when you need it for the built-in bot. Do not use cracked clients to bypass the Minecraft EULA.</FieldDescription>
+                        <FieldContent className="flex flex-row items-center gap-2">
+                            <Switch id="offline-mode" checked={offlineMode} onCheckedChange={setOfflineMode} />
+                            <label htmlFor="offline-mode">Enable offline mode</label>
+                        </FieldContent>
+                    </Field>
+                </FramePanel>
                 <FrameFooter>
                     <Button onClick={() => {
                         updateConfig.mutate({
                             serverMOTD,
                             gameMode,
                             difficulty,
+                            offlineMode,
                         }, {
                             onSuccess: () => {
                                 toast.add({

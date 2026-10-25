@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { publicProcedure, router } from './trpc.js';
 import { downloadServer, getServerUptimeMs, jarPath, markServerStarted, markServerStopped, server } from './server.js';
 
-type Config = {
+export type Config = {
   serverName: string;
   serverMOTD: string;
   serverPort: number;
@@ -12,6 +12,7 @@ type Config = {
   worldSeed: string;
   gameMode: string;
   difficulty: string;
+  offlineMode: boolean;
   accessMode: 'public' | 'private';
   allowedPlayers: string[];
   selectedMods: string[];
@@ -26,12 +27,13 @@ const serverConfigSchema = z.object({
   worldSeed: z.string(),
   gameMode: z.string(),
   difficulty: z.string(),
+  offlineMode: z.boolean().default(false),
   accessMode: z.enum(['public', 'private']),
   allowedPlayers: z.array(z.string()),
   selectedMods: z.array(z.string()),
 });
 
-function readServerConfig(): Config {
+export function readServerConfig(): Config {
   return serverConfigSchema.parse(JSON.parse(fs.readFileSync('./data/serverconfig.json', 'utf-8')));
 }
 
@@ -43,6 +45,7 @@ function serverProperties(config: Config) {
     gamemode: config.gameMode.toLowerCase(),
     'level-seed': config.worldSeed,
     motd: config.serverMOTD,
+    'online-mode': config.offlineMode ? 'false' : 'true',
     'query.port': config.serverPort,
     'server-port': config.serverPort,
     'white-list': config.accessMode === 'public' ? 'false' : 'true',
@@ -87,6 +90,12 @@ const serverConfigRouter = router({
   })).mutation(async ({ input }) => {
     const reason = input.reason?.replace(/[\r\n]+/g, ' ').trim();
     await server.runCommand(`kick ${input.username}${reason ? ` ${reason}` : ''}`);
+    return true;
+  }),
+  opPlayer: publicProcedure.input(z.object({
+    username: z.string().regex(/^[A-Za-z0-9_]{1,16}$/),
+  })).mutation(async ({ input }) => {
+    await server.runCommand(`op ${input.username}`);
     return true;
   }),
   initializeServer: publicProcedure.mutation(async () => {
