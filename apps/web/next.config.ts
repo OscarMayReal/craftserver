@@ -12,11 +12,11 @@ const nextConfig: NextConfig = {
       return [
         {
           source: "/api/trpc/:path*",
-          destination: `${process.env.TRPC_SERVER_URL ?? "http://localhost:3001/trpc"}/:path*`,
+          destination: `${process.env.TRPC_SERVER_URL ?? "http://127.0.0.1:3001/trpc"}/:path*`,
         },
         {
           source: "/api/files/archive",
-          destination: `${(process.env.TRPC_SERVER_URL ?? "http://localhost:3001/trpc").replace(/\/trpc\/?$/, "")}/files/archive`,
+          destination: `${(process.env.TRPC_SERVER_URL ?? "http://127.0.0.1:3001/trpc").replace(/\/trpc\/?$/, "")}/files/archive`,
         },
       ]
     },

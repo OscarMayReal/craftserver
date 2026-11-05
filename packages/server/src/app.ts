@@ -39,7 +39,7 @@ export function startServerApp() {
     }),
   );
 
-  app.listen(port, () => {
+  app.listen(port, '127.0.0.1', () => {
     console.log(`tRPC server listening on http://localhost:${port}/trpc`);
     void startFtpServer().catch((error: unknown) => {
       console.error('Could not start the FTP server:', error);

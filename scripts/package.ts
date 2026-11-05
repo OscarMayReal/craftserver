@@ -1,4 +1,5 @@
-import { cpSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs"
+import { cpSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs"
+import { execFileSync } from "node:child_process"
 import path from "node:path"
 import { gzipSync } from "node:zlib"
 
@@ -92,6 +93,30 @@ if (!result.success) {
   for (const log of result.logs) console.error(log)
   process.exit(1)
 }
+
+const os = process.platform === "darwin" ? "mac" : process.platform === "win32" ? "windows" : "linux"
+const arch = process.arch === "arm64" ? "aarch64" : process.arch === "x64" ? "x64" : null
+if (!arch) throw new Error(`Java runtime packaging is not supported on ${process.platform}/${process.arch}`)
+const extension = os === "windows" ? "zip" : "tar.gz"
+const javaUrl = `https://api.adoptium.net/v3/binary/latest/21/ga/${os}/${arch}/jre/hotspot/normal/eclipse`
+const javaArchive = path.join(root, `dist/java.${extension}`)
+const javaResponse = await fetch(javaUrl)
+if (!javaResponse.ok) throw new Error(`Could not download bundled Java runtime (${javaResponse.status})`)
+writeFileSync(javaArchive, Buffer.from(await javaResponse.arrayBuffer()))
+const javaExtract = path.join(root, "dist/java-extract")
+mkdirSync(javaExtract, { recursive: true })
+execFileSync("tar", ["-xf", javaArchive, "-C", javaExtract])
+const javaExecutableName = os === "windows" ? "java.exe" : "java"
+const javaRoot = readdirSync(javaExtract).map((entry) => path.join(javaExtract, entry)).map((entry) => {
+  const macHome = path.join(entry, "Contents", "Home")
+  return os === "mac" && statSync(path.join(macHome, "bin", javaExecutableName), { throwIfNoEntry: false })?.isFile() ? macHome : entry
+}).find((entry) => {
+  try { return statSync(path.join(entry, "bin", javaExecutableName)).isFile() } catch { return false }
+})
+if (!javaRoot) throw new Error("Downloaded Java runtime archive did not contain a Java executable")
+cpSync(javaRoot, path.join(root, "dist/java"), { recursive: true })
+rmSync(javaExtract, { recursive: true, force: true })
+rmSync(javaArchive, { force: true })
 
 rmSync(staticWebDestination, { recursive: true, force: true })
 rmSync(archivePath, { force: true })

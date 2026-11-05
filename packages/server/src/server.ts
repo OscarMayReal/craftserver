@@ -25,6 +25,9 @@ if (bunRuntime && typeof writeStreamPrototype.setEncoding !== "function") {
 
 export const jarPath = path.resolve("./data/mcserver.jar");
 export const serverPath = path.resolve("./data/mcserver");
+const standalone = (globalThis as typeof globalThis & { Bun?: { isStandaloneExecutable?: boolean } }).Bun?.isStandaloneExecutable;
+const bundledJava = standalone ? path.resolve(path.dirname(process.execPath), "java", "bin", process.platform === "win32" ? "java.exe" : "java") : "";
+const javaExecutable = fs.existsSync(bundledJava) ? bundledJava : "java";
 const fabricJarPath = path.join(serverPath, "fabric-server-launch.jar");
 const modsPath = path.join(serverPath, "mods");
 
@@ -70,7 +73,7 @@ export async function installFabricServer(version: string): Promise<void> {
     if (!response.ok) throw new Error(`Could not download Fabric installer (${response.status})`);
     fs.writeFileSync(installerPath, Buffer.from(await response.arrayBuffer()));
     try {
-        await execFileAsync("java", ["-jar", installerPath, "server", "-mcversion", version, "-dir", serverPath, "-downloadMinecraft"], { timeout: 180_000 });
+        await execFileAsync(javaExecutable, ["-jar", installerPath, "server", "-mcversion", version, "-dir", serverPath, "-downloadMinecraft"], { timeout: 180_000 });
     } catch (error) {
         throw new Error(`Fabric installation failed: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
@@ -405,7 +408,7 @@ function launchServer(merged: Record<string, string | number | boolean>, done: S
 
         const launchJar = fabric ? fabricJarPath : jarPath;
         if (!fs.existsSync(launchJar)) return done(new Error(`${fabric ? "Fabric" : "Vanilla"} server files are missing. Run server setup again.`));
-        const child = spawn('java', ['-Xms1024M', '-Xmx1024M', '-jar', launchJar, 'nogui'], {
+        const child = spawn(javaExecutable, ['-Xms1024M', '-Xmx1024M', '-jar', launchJar, 'nogui'], {
             cwd: serverPath, stdio: 'pipe',
         });
         mcServer = child;

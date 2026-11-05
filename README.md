@@ -4,14 +4,13 @@ A simple Minecraft server manager
 Not only does it let you manage your server, it also includes a bot the can do various things, and even use AI if you configure an API key.
 
 ## Setup
-make sure you have a JDK installed (e.g. Temurin)
-> this can be easily done with homebrew on macOS: `brew install --cask temurin`
+No Java installation is needed when using a packaged release. For development, install a Java 21 runtime (for example, Eclipse Temurin).
 
 ## Build and run
 
 Run `bun run build` to build and type-check the web app and server packages.
 
-Run `bun run package:binary` to create one self-contained Bun executable at `dist/craftserver` (Windows builds use `dist/craftserver.exe`). It embeds the web app and Bun runtime, then refreshes the extracted web files under `.craftserver-runtime` when it starts. In packaged mode, server files and Minecraft data are stored in a `data` directory beside the executable, regardless of the directory you launch it from. In development, data remains relative to the current working directory. A JDK is still required for Minecraft server operations.
+Run `bun run package:binary` to create one self-contained Bun executable at `dist/craftserver` (Windows builds use `dist/craftserver.exe`). It packages the web app, Bun runtime, and a Java 21 runtime for the current OS and architecture. Distribute the entire `dist` folder so CraftServer can use the bundled Java runtime. It refreshes the extracted web files under `.craftserver-runtime` when it starts. In packaged mode, server files and Minecraft data are stored in a `data` directory beside the executable, regardless of the directory you launch it from. In development, data remains relative to the current working directory.
 
 The executable listens on port `3000` for the web app and `3001` for the tRPC server. Set `WEB_PORT` or `TRPC_PORT` to change those ports. Build it on each target OS and architecture.
 

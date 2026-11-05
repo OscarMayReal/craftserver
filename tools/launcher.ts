@@ -89,7 +89,7 @@ extractWebFiles()
 const { startServerApp } = await import("../packages/server/src/app.ts")
 startServerApp()
 
-const backendUrl = new URL(process.env.TRPC_SERVER_URL ?? `http://localhost:${process.env.TRPC_PORT ?? "3001"}/trpc`)
+const backendUrl = new URL(process.env.TRPC_SERVER_URL ?? `http://127.0.0.1:${process.env.TRPC_PORT ?? "3001"}/trpc`)
 const webPort = Number(process.env.WEB_PORT ?? 3000)
 Bun.serve({
   port: webPort,
