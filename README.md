@@ -14,7 +14,7 @@ Run `bun run package:binary` to create one self-contained Bun executable at `dis
 
 The executable listens on port `3000` for the web app and `3001` for the tRPC server. Set `WEB_PORT` or `TRPC_PORT` to change those ports. Build it on each target OS and architecture.
 
-to run on macOS, run the executable from the terminal (you can do this easily by just dragging the executable into your terminal and pressing enter)
+to run on macOS, run the executable from the terminal (you can do this easily by just dragging the executable into your terminal and pressing enter). note, you might need to run chmod +x on the file first
 
 ## Server Managing
 
